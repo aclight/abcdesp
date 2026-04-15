@@ -9,6 +9,15 @@ namespace abcdesp {
 static const char *const TAG = "abcdesp";
 
 // ==========================================================================
+// ClearHoldButton — press_action calls parent clear_hold()
+// ==========================================================================
+void ClearHoldButton::press_action() {
+  if (parent_ != nullptr) {
+    parent_->clear_hold();
+  }
+}
+
+// ==========================================================================
 // Temperature unit conversion helpers
 // ==========================================================================
 static float f_to_c(float f) { return (f - 32.0f) * 5.0f / 9.0f; }
@@ -332,7 +341,8 @@ void AbcdEspComponent::handle_frame(const InfinityFrame &frame) {
 
   // --- NAK to our request ---
   if (frame.func == FUNC_NAK && frame.dst == ADDR_SAM) {
-    ESP_LOGW(TAG, "NAK received from 0x%04X", frame.src);
+    ESP_LOGW(TAG, "NAK received from 0x%04X for pending 0x%02X%02X — command rejected by thermostat",
+             frame.src, pending_table_, pending_row_);
     awaiting_response_ = false;
     return;
   }
@@ -508,6 +518,15 @@ void AbcdEspComponent::parse_tstat_zones(const uint8_t *data,
 
   ESP_LOGD(TAG, "3B03: fan=%d  hold=0x%02X  heat=%d  cool=%d",
            fan_mode_, zone_hold_, heat_setpoint_, cool_setpoint_);
+
+  // Publish hold status
+  bool hold_active = (zone_hold_ & 0x01) != 0;
+  if (hold_active_sensor_ != nullptr &&
+      (!hold_active_initialized_ || hold_active != prev_hold_active_)) {
+    hold_active_sensor_->publish_state(hold_active);
+    prev_hold_active_ = hold_active;
+    hold_active_initialized_ = true;
+  }
 
   publish_climate_state();
 }
@@ -730,8 +749,8 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
     mode_buf[22] = new_mode;
     send_write_request(ADDR_TSTAT, TBL_SAM_INFO, ROW_SAM_STATE,
                        mode_buf, 29);
-    current_mode_ = new_mode;
     ESP_LOGI(TAG, "Setting mode to %d", new_mode);
+    // Note: current_mode_ is NOT updated here. The next poll will confirm.
   }
 
   // Send 3B03 if any zone settings changed
@@ -745,9 +764,12 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
       write_buf_[3 + i] = FAN_AUTO;
     }
 
-    // Hold flag (offset 11) — set hold for zone 1
-    write_buf_[11] = 0x01;
-    flags |= 0x0002;
+    // Hold flag (offset 11) — only set hold when setpoints changed
+    bool setpoints_changed = (flags & 0x000C) != 0;  // heat or cool setpoint flags
+    if (setpoints_changed) {
+      write_buf_[11] = 0x01;
+      flags |= 0x0002;
+    }
     write_buf_[1] = (flags >> 8) & 0xFF;
     write_buf_[2] = flags & 0xFF;
 
@@ -766,15 +788,12 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
     write_len_ = 28;
     write_pending_ = true;
 
-    fan_mode_ = new_fan;
-    heat_setpoint_ = new_heat;
-    cool_setpoint_ = new_cool;
-
     ESP_LOGI(TAG, "Queued 3B03 write: fan=%d heat=%d cool=%d", new_fan,
              new_heat, new_cool);
   }
 
-  publish_climate_state();
+  // Note: state is NOT optimistically updated here.
+  // The next poll of 3B02/3B03 will confirm the thermostat accepted the change.
 }
 
 // ==========================================================================
@@ -928,11 +947,38 @@ void AbcdEspComponent::dump_config() {
   LOG_SENSOR("  ", "HP Coil Temp", hp_coil_temp_sensor_);
   LOG_SENSOR("  ", "HP Stage", hp_stage_sensor_);
   LOG_BINARY_SENSOR("  ", "Comms OK", comms_ok_sensor_);
+  LOG_BINARY_SENSOR("  ", "Hold Active", hold_active_sensor_);
+  if (clear_hold_button_ != nullptr) {
+    ESP_LOGCONFIG(TAG, "  Clear Hold Button: configured");
+  }
   if (allow_control_switch_ != nullptr) {
     ESP_LOGCONFIG(TAG, "  Allow Control Switch: configured");
   } else {
     ESP_LOGCONFIG(TAG, "  Allow Control Switch: not configured (read-only)");
   }
+}
+
+// ==========================================================================
+// Clear hold — send 3B03 write clearing the hold flag for zone 1
+// ==========================================================================
+void AbcdEspComponent::clear_hold() {
+  if (allow_control_switch_ == nullptr || !allow_control_switch_->state) {
+    ESP_LOGW(TAG, "Clear hold blocked: Allow Control switch is OFF");
+    return;
+  }
+
+  memset(write_buf_, 0, sizeof(write_buf_));
+  write_buf_[0] = 0x01;   // zone bitmap: zone 1
+  // flags = 0x0002 (hold flag only)
+  write_buf_[1] = 0x00;
+  write_buf_[2] = 0x02;
+  // hold bitmap (offset 11) = 0x00 — clear hold for zone 1
+  write_buf_[11] = 0x00;
+
+  write_len_ = 28;
+  write_pending_ = true;
+
+  ESP_LOGI(TAG, "Queued clear hold for zone 1");
 }
 
 }  // namespace abcdesp

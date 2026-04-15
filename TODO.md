@@ -11,17 +11,17 @@ Currently only Zone 1 is read and controlled. The Carrier Infinity protocol supp
 
 ## Hold / Schedule Behavior
 
-When setpoints are changed from Home Assistant, the component currently forces the thermostat into permanent **hold** mode, overriding the built-in schedule indefinitely.
+When setpoints are changed from Home Assistant, the component places the thermostat into permanent **hold** mode, overriding the built-in schedule.
 
-The physical thermostat behaves differently:
-- Pressing temp up/down sets a **2-hour temporary hold** (adjustable at the thermostat)
-- Changing mode (heat/cool/auto/off) does **not** trigger a hold
+### Done
+- ~~Clear hold from HA~~ — Clear Hold button entity sends 3B03 write clearing the hold flag
+- ~~Hold status sensor~~ — Hold Active binary sensor shows whether zone 1 is in hold
+- ~~Write feedback~~ — state updates are no longer optimistic; the next poll confirms the thermostat accepted changes
+- Mode and fan changes no longer set hold (only setpoint changes trigger hold)
 
-### Planned work
+### Remaining work
 - Implement temporary hold with a configurable duration (default 2 hours) for setpoint changes
-- Do not set hold when only changing mode or fan speed
-- Provide a way to **clear hold** from Home Assistant, resuming the thermostat's built-in schedule
-- Consider exposing a "Hold Status" sensor showing whether the system is in hold, and what type
+- Consider supporting timed override via the 3B03 override fields (bytes 37-53)
 
 ## Additional Sensors
 

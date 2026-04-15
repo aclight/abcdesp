@@ -56,6 +56,8 @@ impersonating a SAM (System Access Module).
 | HP Coil Temperature | Sensor | Heat pump coil temperature in °F |
 | HP Stage | Sensor | Heat pump compressor stage |
 | Communication OK | Binary Sensor | Whether the ESP32 is receiving responses from the thermostat (goes offline after 30s of no response) |
+| Hold Active | Binary Sensor | Whether zone 1 is in hold mode (schedule overridden) |
+| Clear Hold | Button | Clears hold on zone 1, resuming the thermostat's built-in schedule (requires Allow Control ON) |
 
 > **Note:** Only **Zone 1** is currently supported. Multi-zone systems will only see data for the first zone. See [TODO.md](TODO.md) for planned multi-zone support.
 
@@ -78,7 +80,11 @@ To enable control, toggle the **Allow Control** switch in Home Assistant. The sw
 
 ## Hold Behavior
 
-When you change setpoints from Home Assistant, the component places the thermostat into **hold** mode. This means the thermostat's built-in schedule is overridden until the hold is cleared at the thermostat itself. This is a known limitation — see [TODO.md](TODO.md) for planned improvements.
+When you change setpoints from Home Assistant, the component places the thermostat into **hold** mode. This means the thermostat's built-in schedule is overridden until the hold is cleared.
+
+To resume the thermostat's schedule, press the **Clear Hold** button in Home Assistant (requires the Allow Control switch to be ON). You can also clear the hold at the thermostat itself.
+
+The **Hold Active** binary sensor shows whether zone 1 is currently in hold mode.
 
 ## Installation
 

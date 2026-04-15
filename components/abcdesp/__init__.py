@@ -1,6 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import climate, sensor, binary_sensor, switch, uart
+from esphome.components import climate, sensor, binary_sensor, switch, button, uart
 from esphome.const import (
     DEVICE_CLASS_HUMIDITY,
     DEVICE_CLASS_TEMPERATURE,
@@ -14,12 +14,13 @@ from esphome.const import (
 from esphome import pins
 
 DEPENDENCIES = ["uart"]
-AUTO_LOAD = ["climate", "sensor", "binary_sensor"]
+AUTO_LOAD = ["climate", "sensor", "binary_sensor", "button"]
 
 abcdesp_ns = cg.esphome_ns.namespace("abcdesp")
 AbcdEspComponent = abcdesp_ns.class_(
     "AbcdEspComponent", cg.Component, climate.Climate, uart.UARTDevice
 )
+ClearHoldButton = abcdesp_ns.class_("ClearHoldButton", button.Button)
 
 CONF_FLOW_PIN = "flow_pin"
 CONF_OUTDOOR_TEMP_SENSOR = "outdoor_temp_sensor"
@@ -31,6 +32,8 @@ CONF_INDOOR_HUMIDITY_SENSOR = "indoor_humidity_sensor"
 CONF_HP_COIL_TEMP_SENSOR = "hp_coil_temp_sensor"
 CONF_HP_STAGE_SENSOR = "hp_stage_sensor"
 CONF_COMMS_OK_SENSOR = "comms_ok_sensor"
+CONF_HOLD_ACTIVE_SENSOR = "hold_active_sensor"
+CONF_CLEAR_HOLD_BUTTON = "clear_hold_button"
 
 CONFIG_SCHEMA = (
     climate.climate_schema(AbcdEspComponent)
@@ -82,6 +85,13 @@ CONFIG_SCHEMA = (
                 device_class=DEVICE_CLASS_CONNECTIVITY,
                 entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
+            cv.Optional(CONF_HOLD_ACTIVE_SENSOR): binary_sensor.binary_sensor_schema(
+                icon="mdi:hand-back-left",
+            ),
+            cv.Optional(CONF_CLEAR_HOLD_BUTTON): button.button_schema(
+                ClearHoldButton,
+                icon="mdi:hand-back-left-off",
+            ),
             cv.Optional(CONF_ALLOW_CONTROL_SWITCH): cv.use_id(switch.Switch),
         }
     )
@@ -128,6 +138,15 @@ async def to_code(config):
     if CONF_COMMS_OK_SENSOR in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_COMMS_OK_SENSOR])
         cg.add(var.set_comms_ok_sensor(sens))
+
+    if CONF_HOLD_ACTIVE_SENSOR in config:
+        sens = await binary_sensor.new_binary_sensor(config[CONF_HOLD_ACTIVE_SENSOR])
+        cg.add(var.set_hold_active_sensor(sens))
+
+    if CONF_CLEAR_HOLD_BUTTON in config:
+        btn = await button.new_button(config[CONF_CLEAR_HOLD_BUTTON])
+        cg.add(btn.set_parent(var))
+        cg.add(var.set_clear_hold_button(btn))
 
     if CONF_ALLOW_CONTROL_SWITCH in config:
         sw = await cg.get_variable(config[CONF_ALLOW_CONTROL_SWITCH])
