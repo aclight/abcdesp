@@ -132,11 +132,3 @@ async def to_code(config):
     if CONF_ALLOW_CONTROL_SWITCH in config:
         sw = await cg.get_variable(config[CONF_ALLOW_CONTROL_SWITCH])
         cg.add(var.set_allow_control_switch(sw))
-
-    if CONF_HP_STAGE_SENSOR in config:
-        sens = await cg.get_variable(config[CONF_HP_STAGE_SENSOR])
-        cg.add(var.set_hp_stage_sensor(sens))
-
-    if CONF_COMMS_OK_SENSOR in config:
-        sens = await cg.get_variable(config[CONF_COMMS_OK_SENSOR])
-        cg.add(var.set_comms_ok_sensor(sens))
