@@ -43,69 +43,6 @@ uart:
   stop_bits: 1
   parity: NONE
 
-sensor:
-  - platform: template
-    name: "Outdoor Temperature"
-    id: outdoor_temp
-    unit_of_measurement: "°F"
-    accuracy_decimals: 1
-    device_class: temperature
-    state_class: measurement
-
-  - platform: template
-    name: "Airflow CFM"
-    id: airflow_cfm
-    unit_of_measurement: "CFM"
-    accuracy_decimals: 0
-    icon: "mdi:fan"
-    state_class: measurement
-    entity_category: diagnostic
-
-  - platform: template
-    name: "Heat Stage"
-    id: heat_stage
-    accuracy_decimals: 0
-    icon: "mdi:fire"
-    state_class: measurement
-    entity_category: diagnostic
-
-  - platform: template
-    name: "Indoor Humidity"
-    id: indoor_humidity
-    unit_of_measurement: "%"
-    accuracy_decimals: 0
-    device_class: humidity
-    state_class: measurement
-
-  - platform: template
-    name: "HP Coil Temperature"
-    id: hp_coil_temp
-    unit_of_measurement: "°F"
-    accuracy_decimals: 1
-    device_class: temperature
-    state_class: measurement
-    entity_category: diagnostic
-
-  - platform: template
-    name: "HP Stage"
-    id: hp_stage
-    accuracy_decimals: 0
-    icon: "mdi:heat-pump"
-    state_class: measurement
-    entity_category: diagnostic
-
-binary_sensor:
-  - platform: template
-    name: "Blower Running"
-    id: blower_running
-    entity_category: diagnostic
-
-  - platform: template
-    name: "Communication OK"
-    id: comms_ok
-    device_class: connectivity
-    entity_category: diagnostic
-
 switch:
   - platform: template
     name: "Allow Control"
@@ -116,17 +53,26 @@ switch:
 
 abcdesp:
   name: "HVAC"
+  icon: "mdi:hvac"
   uart_id: abcdesp_uart
   flow_pin:
     number: GPIO4
     mode:
       output: true
-  outdoor_temp_sensor: outdoor_temp
-  airflow_cfm_sensor: airflow_cfm
-  blower_sensor: blower_running
-  heat_stage_sensor: heat_stage
   allow_control_switch: allow_control
-  indoor_humidity_sensor: indoor_humidity
-  hp_coil_temp_sensor: hp_coil_temp
-  hp_stage_sensor: hp_stage
-  comms_ok_sensor: comms_ok
+  outdoor_temp_sensor:
+    name: "Outdoor Temperature"
+  indoor_humidity_sensor:
+    name: "Indoor Humidity"
+  airflow_cfm_sensor:
+    name: "Airflow CFM"
+  heat_stage_sensor:
+    name: "Heat Stage"
+  hp_coil_temp_sensor:
+    name: "HP Coil Temperature"
+  hp_stage_sensor:
+    name: "HP Stage"
+  blower_sensor:
+    name: "Blower Running"
+  comms_ok_sensor:
+    name: "Communication OK"
