@@ -30,8 +30,12 @@ _(All planned sensors have been implemented.)_
 ## Entity Improvements
 
 - **Heat stage labels** — map raw heat stage values (0–3) to meaningful labels (off/low/med/high) via a text sensor or HA template
+- **Single vs. dual setpoint by mode** — show one target temperature in heat/cool mode, two in auto
+- **Fan-only mode** — expose fan-only operation via the climate entity
+- **Away/vacation preset** — map Carrier vacation hold to HA climate presets
+- **Internalize Allow Control switch** — register the switch inside the component instead of requiring a separate `switch:` block in YAML
 
 ## Other
 
-- **Web server** — add ESPHome `web_server` component for local debugging without Home Assistant
+- **Bus device detection** — log which devices (thermostat, air handler, heat pump) are detected on the bus and warn about missing ones
 - **Unique ID handling** — document behavior for users with multiple ESP32 units

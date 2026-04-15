@@ -184,6 +184,15 @@ class AbcdEspComponent : public Component,
   float hp_coil_temp_{NAN};
   uint8_t hp_stage_{0};
 
+  // Previous sensor values for deduplication
+  float prev_outdoor_temp_{NAN};
+  uint16_t prev_airflow_cfm_{UINT16_MAX};
+  bool prev_blower_running_{false};
+  uint8_t prev_heat_stage_{UINT8_MAX};
+  uint8_t prev_indoor_humidity_{UINT8_MAX};
+  float prev_hp_coil_temp_{NAN};
+  uint8_t prev_hp_stage_{UINT8_MAX};
+
   // Sensor pointers
   sensor::Sensor *outdoor_temp_sensor_{nullptr};
   sensor::Sensor *airflow_cfm_sensor_{nullptr};
