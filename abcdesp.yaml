@@ -76,3 +76,7 @@ abcdesp:
     name: "Blower Running"
   comms_ok_sensor:
     name: "Communication OK"
+  hold_active_sensor:
+    name: "Hold Active"
+  clear_hold_button:
+    name: "Clear Hold"

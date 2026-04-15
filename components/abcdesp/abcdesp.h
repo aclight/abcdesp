@@ -5,6 +5,7 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/switch/switch.h"
+#include "esphome/components/button/button.h"
 #include "esphome/components/uart/uart.h"
 
 namespace esphome {
@@ -83,6 +84,23 @@ struct InfinityFrame {
 };
 
 // ---------------------------------------------------------------------------
+// Forward declaration
+// ---------------------------------------------------------------------------
+class AbcdEspComponent;
+
+// ---------------------------------------------------------------------------
+// Clear Hold button — calls back into the main component
+// ---------------------------------------------------------------------------
+class ClearHoldButton : public button::Button {
+ public:
+  void set_parent(AbcdEspComponent *parent) { parent_ = parent; }
+
+ protected:
+  void press_action() override;
+  AbcdEspComponent *parent_{nullptr};
+};
+
+// ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
 class AbcdEspComponent : public Component,
@@ -99,6 +117,11 @@ class AbcdEspComponent : public Component,
   void set_hp_coil_temp_sensor(sensor::Sensor *s) { hp_coil_temp_sensor_ = s; }
   void set_hp_stage_sensor(sensor::Sensor *s) { hp_stage_sensor_ = s; }
   void set_comms_ok_sensor(binary_sensor::BinarySensor *s) { comms_ok_sensor_ = s; }
+  void set_hold_active_sensor(binary_sensor::BinarySensor *s) { hold_active_sensor_ = s; }
+  void set_clear_hold_button(ClearHoldButton *b) { clear_hold_button_ = b; }
+
+  // Clear hold — sends a 3B03 write clearing the hold flag
+  void clear_hold();
 
   // Component overrides
   void setup() override;
@@ -213,6 +236,14 @@ class AbcdEspComponent : public Component,
 
   // Communication health
   binary_sensor::BinarySensor *comms_ok_sensor_{nullptr};
+
+  // Hold status
+  binary_sensor::BinarySensor *hold_active_sensor_{nullptr};
+  bool prev_hold_active_{false};
+  bool hold_active_initialized_{false};
+
+  // Clear hold button
+  ClearHoldButton *clear_hold_button_{nullptr};
 
   // Publish helpers
   void publish_climate_state();
