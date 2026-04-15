@@ -1,0 +1,19 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile tests
+        run: g++ -std=c++17 -DUNIT_TEST -Wall -Wextra -o test_runner tests/test_protocol.cpp
+
+      - name: Run tests
+        run: ./test_runner

@@ -14,10 +14,11 @@ uint16_t AbcdEspComponent::crc16(const uint8_t *data, uint16_t len) {
   for (uint16_t i = 0; i < len; i++) {
     crc ^= data[i];
     for (uint8_t j = 0; j < 8; j++) {
-      if (crc & 0x0001)
+      if (crc & 0x0001) {
         crc = (crc >> 1) ^ CRC_POLY;
-      else
+      } else {
         crc >>= 1;
+      }
     }
   }
   return crc;
@@ -28,27 +29,31 @@ uint16_t AbcdEspComponent::crc16(const uint8_t *data, uint16_t len) {
 // ==========================================================================
 bool AbcdEspComponent::parse_frame(const uint8_t *buf, uint16_t len,
                                            InfinityFrame &frame) {
-  if (len < FRAME_MIN_LEN)
+  if (len < FRAME_MIN_LEN) {
     return false;
+  }
 
   uint8_t data_len = buf[4];
   uint16_t expected_len = FRAME_HEADER_LEN + data_len + FRAME_CRC_LEN;
-  if (len < expected_len)
+  if (len < expected_len) {
     return false;
+  }
 
   // CRC check — CRC is little-endian after header+data
   uint16_t calc = crc16(buf, FRAME_HEADER_LEN + data_len);
   uint16_t received = buf[FRAME_HEADER_LEN + data_len] |
                       (buf[FRAME_HEADER_LEN + data_len + 1] << 8);
-  if (calc != received)
+  if (calc != received) {
     return false;
+  }
 
   frame.dst = (buf[0] << 8) | buf[1];
   frame.src = (buf[2] << 8) | buf[3];
   frame.length = data_len;
   frame.func = buf[7];
-  if (data_len > 0)
+  if (data_len > 0) {
     memcpy(frame.data, buf + FRAME_HEADER_LEN, data_len);
+  }
 
   return true;
 }
@@ -66,8 +71,9 @@ void AbcdEspComponent::build_frame(const InfinityFrame &frame,
   out[5] = 0x00;  // PID
   out[6] = 0x00;  // EXT
   out[7] = frame.func;
-  if (frame.length > 0)
+  if (frame.length > 0) {
     memcpy(out + FRAME_HEADER_LEN, frame.data, frame.length);
+  }
 
   uint16_t payload_end = FRAME_HEADER_LEN + frame.length;
   uint16_t crc = crc16(out, payload_end);
@@ -80,16 +86,18 @@ void AbcdEspComponent::build_frame(const InfinityFrame &frame,
 // Send frame over UART with flow control
 // ==========================================================================
 void AbcdEspComponent::send_frame(const uint8_t *buf, uint16_t len) {
-  if (flow_pin_ != nullptr)
+  if (flow_pin_ != nullptr) {
     flow_pin_->digital_write(true);   // assert TX
+  }
   delayMicroseconds(TX_SETTLE_US);
 
   write_array(buf, len);
   flush();
 
   delayMicroseconds(TX_SETTLE_US);
-  if (flow_pin_ != nullptr)
+  if (flow_pin_ != nullptr) {
     flow_pin_->digital_write(false);  // back to RX
+  }
 
   last_send_ms_ = millis();
 }
@@ -120,8 +128,9 @@ void AbcdEspComponent::send_read_request(uint16_t dst, uint8_t table,
                                                   uint8_t row) {
   // Enforce minimum gap between self-initiated frames
   uint32_t now = millis();
-  if (now - last_send_ms_ < MIN_FRAME_GAP_MS)
+  if (now - last_send_ms_ < MIN_FRAME_GAP_MS) {
     return;
+  }
 
   InfinityFrame f;
   f.dst = dst;
@@ -153,8 +162,9 @@ void AbcdEspComponent::send_write_request(uint16_t dst, uint8_t table,
                                                    const uint8_t *payload,
                                                    uint8_t payload_len) {
   uint32_t now = millis();
-  if (now - last_send_ms_ < MIN_FRAME_GAP_MS)
+  if (now - last_send_ms_ < MIN_FRAME_GAP_MS) {
     return;
+  }
 
   InfinityFrame f;
   f.dst = dst;
@@ -164,8 +174,9 @@ void AbcdEspComponent::send_write_request(uint16_t dst, uint8_t table,
   f.data[0] = REG_PREFIX;
   f.data[1] = table;
   f.data[2] = row;
-  if (payload_len > 0)
+  if (payload_len > 0) {
     memcpy(f.data + 3, payload, payload_len);
+  }
 
   uint8_t buf[270];
   uint16_t len;
@@ -180,7 +191,7 @@ void AbcdEspComponent::send_write_request(uint16_t dst, uint8_t table,
 // Component setup
 // ==========================================================================
 void AbcdEspComponent::setup() {
-  ESP_LOGI(TAG, "Carrier Infinity component initializing");
+  ESP_LOGI(TAG, "ABCDESP component initializing");
   if (flow_pin_ != nullptr) {
     flow_pin_->setup();
     flow_pin_->digital_write(false);  // start in RX mode
@@ -197,8 +208,9 @@ void AbcdEspComponent::loop() {
   // --- Drain UART into ring buffer ---
   while (available() > 0 && rx_len_ < RX_BUF_SIZE) {
     uint8_t byte;
-    if (read_byte(&byte))
+    if (read_byte(&byte)) {
       rx_buf_[rx_len_++] = byte;
+    }
   }
 
   // --- Try to parse frames from buffer ---
@@ -212,16 +224,18 @@ void AbcdEspComponent::loop() {
       continue;
     }
 
-    if (rx_len_ < frame_len)
+    if (rx_len_ < frame_len) {
       break;  // need more bytes
+    }
 
     InfinityFrame frame;
     if (parse_frame(rx_buf_, frame_len, frame)) {
       handle_frame(frame);
       // Consume the frame
       rx_len_ -= frame_len;
-      if (rx_len_ > 0)
+      if (rx_len_ > 0) {
         memmove(rx_buf_, rx_buf_ + frame_len, rx_len_);
+      }
     } else {
       // CRC failed — skip one byte, try to re-sync
       memmove(rx_buf_, rx_buf_ + 1, --rx_len_);
@@ -317,8 +331,9 @@ void AbcdEspComponent::handle_frame(const InfinityFrame &frame) {
 void AbcdEspComponent::handle_ack_response(const InfinityFrame &frame) {
   awaiting_response_ = false;
 
-  if (frame.length <= 3)
+  if (frame.length <= 3) {
     return;  // Simple write-ack (data=0x00), nothing to parse
+  }
 
   // Data layout: [0]=0x00, [1]=table, [2]=row, [3..]=register content
   uint8_t table = frame.data[1];
@@ -346,8 +361,9 @@ void AbcdEspComponent::handle_write_to_sam(const InfinityFrame &frame) {
 // ==========================================================================
 void AbcdEspComponent::handle_snooped_response(
     const InfinityFrame &frame) {
-  if (frame.length <= 3)
+  if (frame.length <= 3) {
     return;
+  }
 
   uint8_t table = frame.data[1];
   uint8_t row = frame.data[2];
@@ -443,8 +459,9 @@ void AbcdEspComponent::parse_tstat_zones(const uint8_t *data,
 // ==========================================================================
 void AbcdEspComponent::parse_airhandler_06(const uint8_t *data,
                                                     uint8_t len) {
-  if (len < 5)
+  if (len < 5) {
     return;
+  }
 
   blower_rpm_ = (data[1] << 8) | data[2];
   // 0306 also has airflow but 0316 is more frequently updated
@@ -453,8 +470,9 @@ void AbcdEspComponent::parse_airhandler_06(const uint8_t *data,
 
   ESP_LOGD(TAG, "0306: blower RPM=%d", blower_rpm_);
 
-  if (blower_running_ != was_running)
+  if (blower_running_ != was_running) {
     publish_sensors();
+  }
 }
 
 // ==========================================================================
@@ -465,8 +483,9 @@ void AbcdEspComponent::parse_airhandler_06(const uint8_t *data,
 // ==========================================================================
 void AbcdEspComponent::parse_airhandler_16(const uint8_t *data,
                                                     uint8_t len) {
-  if (len < 6)
+  if (len < 6) {
     return;
+  }
 
   heat_stage_ = data[0];
   airflow_cfm_ = (data[4] << 8) | data[5];
@@ -485,8 +504,9 @@ void AbcdEspComponent::parse_airhandler_16(const uint8_t *data,
 // ==========================================================================
 void AbcdEspComponent::parse_heatpump_01(const uint8_t *data,
                                                   uint8_t len) {
-  if (len < 4)
+  if (len < 4) {
     return;
+  }
 
   hp_outside_temp_ =
       static_cast<float>((data[0] << 8) | data[1]) / 16.0f;
@@ -509,8 +529,9 @@ void AbcdEspComponent::parse_heatpump_01(const uint8_t *data,
 // ==========================================================================
 void AbcdEspComponent::parse_heatpump_02(const uint8_t *data,
                                                   uint8_t len) {
-  if (len < 1)
+  if (len < 1) {
     return;
+  }
   hp_stage_ = data[0] >> 1;
   ESP_LOGD(TAG, "3E02: HP stage=%d", hp_stage_);
 }
@@ -637,8 +658,9 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
 
     // Fan modes for zones 1-8 (offsets 3-10)
     write_buf_[3] = new_fan;
-    for (int i = 1; i < 8; i++)
+    for (int i = 1; i < 8; i++) {
       write_buf_[3 + i] = FAN_AUTO;
+    }
 
     // Hold flag (offset 11) — set hold for zone 1
     write_buf_[11] = 0x01;
@@ -648,13 +670,15 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
 
     // Heat setpoints (offsets 12-19)
     write_buf_[12] = new_heat;
-    for (int i = 1; i < 8; i++)
+    for (int i = 1; i < 8; i++) {
       write_buf_[12 + i] = new_heat;
+    }
 
     // Cool setpoints (offsets 20-27)
     write_buf_[20] = new_cool;
-    for (int i = 1; i < 8; i++)
+    for (int i = 1; i < 8; i++) {
       write_buf_[20 + i] = new_cool;
+    }
 
     write_len_ = 28;
     write_pending_ = true;
@@ -675,8 +699,9 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
 // ==========================================================================
 void AbcdEspComponent::publish_climate_state() {
   // Current temperature
-  if (!std::isnan(indoor_temp_))
+  if (!std::isnan(indoor_temp_)) {
     this->current_temperature = indoor_temp_;
+  }
 
   // Target temperatures
   this->target_temperature_low = static_cast<float>(heat_setpoint_);
@@ -720,18 +745,19 @@ void AbcdEspComponent::publish_climate_state() {
   if (current_mode_ == MODE_OFF) {
     this->action = climate::CLIMATE_ACTION_OFF;
   } else if (blower_running_) {
-    if (heat_stage_ > 0)
+    if (heat_stage_ > 0) {
       this->action = climate::CLIMATE_ACTION_HEATING;
-    else if (current_mode_ == MODE_COOL ||
+    } else if (current_mode_ == MODE_COOL ||
              (current_mode_ == MODE_AUTO && !std::isnan(indoor_temp_) &&
-              indoor_temp_ > static_cast<float>(cool_setpoint_)))
+              indoor_temp_ > static_cast<float>(cool_setpoint_))) {
       this->action = climate::CLIMATE_ACTION_COOLING;
-    else if (current_mode_ == MODE_HEAT ||
+    } else if (current_mode_ == MODE_HEAT ||
              (current_mode_ == MODE_AUTO && !std::isnan(indoor_temp_) &&
-              indoor_temp_ < static_cast<float>(heat_setpoint_)))
+              indoor_temp_ < static_cast<float>(heat_setpoint_))) {
       this->action = climate::CLIMATE_ACTION_HEATING;
-    else
+    } else {
       this->action = climate::CLIMATE_ACTION_FAN;
+    }
   } else {
     this->action = climate::CLIMATE_ACTION_IDLE;
   }
@@ -743,17 +769,21 @@ void AbcdEspComponent::publish_climate_state() {
 // Publish sensor entities
 // ==========================================================================
 void AbcdEspComponent::publish_sensors() {
-  if (outdoor_temp_sensor_ != nullptr && !std::isnan(outdoor_temp_))
+  if (outdoor_temp_sensor_ != nullptr && !std::isnan(outdoor_temp_)) {
     outdoor_temp_sensor_->publish_state(outdoor_temp_);
+  }
 
-  if (airflow_cfm_sensor_ != nullptr)
+  if (airflow_cfm_sensor_ != nullptr) {
     airflow_cfm_sensor_->publish_state(static_cast<float>(airflow_cfm_));
+  }
 
-  if (blower_sensor_ != nullptr)
+  if (blower_sensor_ != nullptr) {
     blower_sensor_->publish_state(blower_running_);
+  }
 
-  if (heat_stage_sensor_ != nullptr)
+  if (heat_stage_sensor_ != nullptr) {
     heat_stage_sensor_->publish_state(static_cast<float>(heat_stage_));
+  }
 }
 
 // ==========================================================================
@@ -764,8 +794,9 @@ void AbcdEspComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "  SAM Address: 0x%04X", ADDR_SAM);
   ESP_LOGCONFIG(TAG, "  Thermostat Address: 0x%04X", ADDR_TSTAT);
   ESP_LOGCONFIG(TAG, "  Poll Interval: %d ms", POLL_INTERVAL_MS);
-  if (flow_pin_ != nullptr)
+  if (flow_pin_ != nullptr) {
     LOG_PIN("  Flow Control Pin: ", flow_pin_);
+  }
   LOG_SENSOR("  ", "Outdoor Temp", outdoor_temp_sensor_);
   LOG_SENSOR("  ", "Airflow CFM", airflow_cfm_sensor_);
   LOG_BINARY_SENSOR("  ", "Blower", blower_sensor_);
