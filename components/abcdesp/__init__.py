@@ -2,7 +2,6 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import climate, sensor, binary_sensor, uart
 from esphome import pins
-from esphome.const import CONF_ID
 
 DEPENDENCIES = ["uart", "climate"]
 AUTO_LOAD = ["sensor", "binary_sensor"]
@@ -19,9 +18,9 @@ CONF_BLOWER_SENSOR = "blower_sensor"
 CONF_HEAT_STAGE_SENSOR = "heat_stage_sensor"
 
 CONFIG_SCHEMA = (
-    climate.CLIMATE_SCHEMA.extend(
+    climate.climate_schema(AbcdEspComponent)
+    .extend(
         {
-            cv.GenerateID(): cv.declare_id(AbcdEspComponent),
             cv.Optional(CONF_FLOW_PIN): pins.gpio_output_pin_schema,
             cv.Optional(CONF_OUTDOOR_TEMP_SENSOR): cv.use_id(sensor.Sensor),
             cv.Optional(CONF_AIRFLOW_CFM_SENSOR): cv.use_id(sensor.Sensor),
@@ -35,9 +34,7 @@ CONFIG_SCHEMA = (
 
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
-    await cg.register_component(var, config)
-    await climate.register_climate(var, config)
+    var = await climate.new_climate(config)
     await uart.register_uart_device(var, config)
 
     if CONF_FLOW_PIN in config:

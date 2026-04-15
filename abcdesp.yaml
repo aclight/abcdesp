@@ -77,7 +77,8 @@ abcdesp:
   uart_id: abcdesp_uart
   flow_pin:
     number: GPIO4
-    mode: OUTPUT
+    mode:
+      output: true
   outdoor_temp_sensor: outdoor_temp
   airflow_cfm_sensor: airflow_cfm
   blower_sensor: blower_running

@@ -1,5 +1,7 @@
 #include "abcdesp.h"
 #include "esphome/core/log.h"
+#include <cmath>
+#include <cstring>
 
 namespace esphome {
 namespace abcdesp {
