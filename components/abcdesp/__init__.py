@@ -3,8 +3,7 @@ import esphome.config_validation as cv
 from esphome.components import climate, sensor, binary_sensor, uart
 from esphome import pins
 
-DEPENDENCIES = ["uart", "climate"]
-AUTO_LOAD = ["sensor", "binary_sensor"]
+DEPENDENCIES = ["uart"]
 
 abcdesp_ns = cg.esphome_ns.namespace("abcdesp")
 AbcdEspComponent = abcdesp_ns.class_(
@@ -29,7 +28,6 @@ CONFIG_SCHEMA = (
         }
     )
     .extend(uart.UART_DEVICE_SCHEMA)
-    .extend(cv.COMPONENT_SCHEMA)
 )
 
 
