@@ -267,6 +267,24 @@ void AbcdEspComponent::loop() {
     }
   }
 
+  // --- Log bus device detection summary after startup ---
+  if (!bus_detection_logged_ && millis() > 60000) {
+    bus_detection_logged_ = true;
+    ESP_LOGI(TAG, "Bus device summary: thermostat=%s  air_handler=%s  heat_pump=%s",
+             seen_thermostat_ ? "yes" : "NO",
+             seen_air_handler_ ? "yes" : "NO",
+             seen_heat_pump_ ? "yes" : "NO");
+    if (!seen_thermostat_) {
+      ESP_LOGW(TAG, "No thermostat detected — check RS-485 wiring and baud rate");
+    }
+    if (!seen_air_handler_) {
+      ESP_LOGW(TAG, "No air handler detected — airflow/blower/heat stage sensors will not update");
+    }
+    if (!seen_heat_pump_) {
+      ESP_LOGW(TAG, "No heat pump detected — HP sensors will not update (normal if system has no heat pump)");
+    }
+  }
+
   // --- Periodic polling of thermostat ---
   uint32_t now = millis();
   if (!awaiting_response_ && !write_pending_ &&
@@ -336,8 +354,17 @@ void AbcdEspComponent::handle_frame(const InfinityFrame &frame) {
   // --- Snoop: ACK06 responses from air handler or heat pump ---
   if (frame.func == FUNC_ACK06 && frame.length > 3) {
     uint16_t src_class = frame.src & 0xFF00;
-    if (src_class == 0x4000 || src_class == 0x4200 ||
-        src_class == 0x5000 || src_class == 0x5100 || src_class == 0x5200) {
+    if (src_class == 0x4000 || src_class == 0x4200) {
+      if (!seen_air_handler_) {
+        seen_air_handler_ = true;
+        ESP_LOGI(TAG, "Detected air handler on bus (0x%04X)", frame.src);
+      }
+      handle_snooped_response(frame);
+    } else if (src_class == 0x5000 || src_class == 0x5100 || src_class == 0x5200) {
+      if (!seen_heat_pump_) {
+        seen_heat_pump_ = true;
+        ESP_LOGI(TAG, "Detected heat pump on bus (0x%04X)", frame.src);
+      }
       handle_snooped_response(frame);
     }
   }
@@ -356,6 +383,12 @@ void AbcdEspComponent::handle_ack_response(const InfinityFrame &frame) {
     if (comms_ok_sensor_ != nullptr) {
       comms_ok_sensor_->publish_state(true);
     }
+  }
+
+  // Track thermostat detection
+  if (!seen_thermostat_) {
+    seen_thermostat_ = true;
+    ESP_LOGI(TAG, "Detected thermostat on bus (0x%04X)", frame.src);
   }
 
   if (frame.length <= 3) {

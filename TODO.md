@@ -37,5 +37,5 @@ _(All planned sensors have been implemented.)_
 
 ## Other
 
-- **Bus device detection** — log which devices (thermostat, air handler, heat pump) are detected on the bus and warn about missing ones
-- **Unique ID handling** — document behavior for users with multiple ESP32 units
+- ~~**Bus device detection**~~ — done: logs which devices are detected on the bus after 60s and warns about missing ones
+- ~~**Unique ID handling**~~ — done: documented in README
