@@ -47,6 +47,7 @@ abcdesp:
   name: "HVAC"
   icon: "mdi:hvac"
   uart_id: abcdesp_uart
+  hold_duration_minutes: 120  # 0 = permanent hold (default)
   flow_pin:
     number: GPIO4
     mode:
