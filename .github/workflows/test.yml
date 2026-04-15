@@ -52,4 +52,4 @@ jobs:
           EOF
 
       - name: Compile for ESP32
-        run: esphome compile abcdesp.yaml
+        run: esphome compile tests/ci_compile.yaml
