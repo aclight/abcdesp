@@ -570,7 +570,7 @@ void AbcdEspComponent::parse_heatpump_02(const uint8_t *data,
 climate::ClimateTraits AbcdEspComponent::traits() {
   auto traits = climate::ClimateTraits();
   traits.add_feature_flags(climate::CLIMATE_SUPPORTS_CURRENT_TEMPERATURE |
-                           climate::CLIMATE_REQUIRES_TWO_POINT_TARGET_TEMPERATURE);
+                           climate::CLIMATE_SUPPORTS_TWO_POINT_TARGET_TEMPERATURE);
   traits.set_visual_min_temperature(f_to_c(40));   // 40°F ≈ 4.4°C
   traits.set_visual_max_temperature(f_to_c(99));   // 99°F ≈ 37.2°C
   traits.set_visual_target_temperature_step(0.5);   // 0.5°C step, rounds to nearest °F
@@ -662,6 +662,21 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
     flags |= 0x0001;  // fan mode flag
   }
 
+  // Single target temperature (heat or cool mode)
+  if (call.get_target_temperature().has_value()) {
+    uint8_t target = static_cast<uint8_t>(c_to_f(*call.get_target_temperature()) + 0.5f);
+    // Determine which setpoint based on effective mode
+    uint8_t effective_mode = call.get_mode().has_value() ? new_mode : current_mode_;
+    if (effective_mode == MODE_HEAT) {
+      new_heat = target;
+      flags |= 0x0004;  // heat setpoint flag
+    } else if (effective_mode == MODE_COOL) {
+      new_cool = target;
+      flags |= 0x0008;  // cool setpoint flag
+    }
+  }
+
+  // Dual target temperatures (auto/heat_cool mode)
   if (call.get_target_temperature_low().has_value()) {
     new_heat = static_cast<uint8_t>(c_to_f(*call.get_target_temperature_low()) + 0.5f);
     flags |= 0x0004;  // heat setpoint flag
@@ -741,10 +756,6 @@ void AbcdEspComponent::publish_climate_state() {
   // Current humidity
   this->current_humidity = static_cast<float>(indoor_humidity_);
 
-  // Target temperatures (convert °F → °C for HA)
-  this->target_temperature_low = f_to_c(static_cast<float>(heat_setpoint_));
-  this->target_temperature_high = f_to_c(static_cast<float>(cool_setpoint_));
-
   // Mode
   switch (current_mode_) {
     case MODE_HEAT:
@@ -759,6 +770,23 @@ void AbcdEspComponent::publish_climate_state() {
     case MODE_OFF:
     default:
       this->mode = climate::CLIMATE_MODE_OFF;
+      break;
+  }
+
+  // Target temperatures (convert °F → °C for HA)
+  // Use single target in heat/cool modes, dual target in auto mode
+  switch (this->mode) {
+    case climate::CLIMATE_MODE_HEAT:
+      this->target_temperature = f_to_c(static_cast<float>(heat_setpoint_));
+      break;
+    case climate::CLIMATE_MODE_COOL:
+      this->target_temperature = f_to_c(static_cast<float>(cool_setpoint_));
+      break;
+    case climate::CLIMATE_MODE_HEAT_COOL:
+      this->target_temperature_low = f_to_c(static_cast<float>(heat_setpoint_));
+      this->target_temperature_high = f_to_c(static_cast<float>(cool_setpoint_));
+      break;
+    default:
       break;
   }
 
