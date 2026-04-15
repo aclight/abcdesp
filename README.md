@@ -46,7 +46,7 @@ impersonating a SAM (System Access Module).
 
 | Entity | Type | Description |
 |--------|------|-------------|
-| HVAC | Climate | Mode (off/heat/cool/auto), fan (auto/low/med/high), heat+cool setpoints, current temperature and humidity |
+| HVAC | Climate | Mode (off/heat/cool/auto), fan (auto/low/med/high), setpoints, current temperature and humidity |
 | Allow Control | Switch | Enables HVAC control from HA (default: OFF — see [Read-Only Mode](#read-only-mode)) |
 | Outdoor Temperature | Sensor | Outdoor air temp in °F (from heat pump 3E01 if available, otherwise from thermostat 3B02) |
 | Indoor Humidity | Sensor | Indoor relative humidity (%) from thermostat |
