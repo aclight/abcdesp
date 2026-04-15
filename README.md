@@ -47,10 +47,13 @@ impersonating a SAM (System Access Module).
 | Entity | Type | Description |
 |--------|------|-------------|
 | HVAC | Climate | Mode (off/heat/cool/auto), fan (auto/low/med/high), heat+cool setpoints, current temperature |
+| Allow Control | Switch | Enables HVAC control from HA (default: OFF — see [Read-Only Mode](#read-only-mode)) |
 | Outdoor Temperature | Sensor | Outdoor air temp in °F (from heat pump 3E01 if available, otherwise from thermostat 3B02) |
 | Airflow CFM | Sensor | Air handler airflow in CFM |
 | Blower Running | Binary Sensor | Whether the blower is running |
 | Heat Stage | Sensor | Current heat stage (0=off, 1=low, 2=med, 3=high) |
+
+> **Note:** Only **Zone 1** is currently supported. Multi-zone systems will only see data for the first zone. See [TODO.md](TODO.md) for planned multi-zone support.
 
 ## How It Works
 
@@ -61,10 +64,30 @@ The component impersonates a SAM module (address 0x9201) on the RS-485 bus:
 3. **Writes** to the thermostat via 3B02 (mode changes) and 3B03 (setpoints, fan mode) using the SAM notification protocol with proper flag headers.
 4. **ACKs** any WRITE frames the thermostat sends to the SAM address (typically 3B0E acknowledgments).
 
+## Read-Only Mode
+
+By default the component starts in **read-only mode** — it monitors the HVAC bus but will not send any control commands. This lets you verify everything is working before allowing HA to change your HVAC settings.
+
+To enable control, toggle the **Allow Control** switch in Home Assistant. The switch defaults to OFF and remembers its state across reboots (it will stay OFF unless you explicitly turn it ON).
+
+## Hold Behavior
+
+When you change setpoints from Home Assistant, the component places the thermostat into **hold** mode. This means the thermostat's built-in schedule is overridden until the hold is cleared at the thermostat itself. This is a known limitation — see [TODO.md](TODO.md) for planned improvements.
+
 ## Installation
 
-1. Copy the `components/abcdesp/` folder into your ESPHome config directory.
-2. Copy `abcdesp.yaml` to your ESPHome config directory.
+1. Add the following to your ESPHome YAML config to pull the component directly from GitHub:
+
+```yaml
+external_components:
+  - source:
+      type: git
+      url: https://github.com/aclight/abcdesp
+      ref: main
+    components: [abcdesp]
+```
+
+2. See `abcdesp.yaml` in this repository for a complete example configuration.
 3. Create a `secrets.yaml` with your WiFi credentials, API key, and OTA password.
 4. Flash:
 
