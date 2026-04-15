@@ -25,7 +25,7 @@ The physical thermostat behaves differently:
 
 ## Additional Sensors
 
-- **Communication health** — add a "Last Successful Poll" timestamp sensor and a "Communication OK" binary sensor that goes false if no successful response is received within a configurable timeout
+_(All planned sensors have been implemented.)_
 
 ## Entity Improvements
 

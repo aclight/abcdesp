@@ -55,6 +55,7 @@ impersonating a SAM (System Access Module).
 | Heat Stage | Sensor | Current heat stage (0=off, 1=low, 2=med, 3=high) |
 | HP Coil Temperature | Sensor | Heat pump coil temperature in °F |
 | HP Stage | Sensor | Heat pump compressor stage |
+| Communication OK | Binary Sensor | Whether the ESP32 is receiving responses from the thermostat (goes offline after 30s of no response) |
 
 > **Note:** Only **Zone 1** is currently supported. Multi-zone systems will only see data for the first zone. See [TODO.md](TODO.md) for planned multi-zone support.
 
