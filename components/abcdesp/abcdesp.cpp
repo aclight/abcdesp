@@ -213,6 +213,10 @@ void AbcdEspComponent::setup() {
     flow_pin_->setup();
     flow_pin_->digital_write(false);  // start in RX mode
   }
+  // Initialize Allow Control switch to OFF (control blocked until user enables)
+  if (allow_control_switch_ != nullptr) {
+    allow_control_switch_->publish_state(false);
+  }
   rx_len_ = 0;
   last_poll_ms_ = millis();
   poll_step_ = 0;
@@ -312,7 +316,7 @@ void AbcdEspComponent::loop() {
 }
 
 // ==========================================================================
-// Poll thermostat — alternate between 3B02 and 3B03
+// Poll thermostat — cycle through 3B02, 3B03, 3B04
 // ==========================================================================
 void AbcdEspComponent::poll_thermostat() {
   switch (poll_step_) {
@@ -322,8 +326,11 @@ void AbcdEspComponent::poll_thermostat() {
     case 1:
       send_read_request(ADDR_TSTAT, TBL_SAM_INFO, ROW_SAM_ZONES);
       break;
+    case 2:
+      send_read_request(ADDR_TSTAT, TBL_SAM_INFO, ROW_SAM_VACATION);
+      break;
   }
-  poll_step_ = (poll_step_ + 1) % 2;
+  poll_step_ = (poll_step_ + 1) % 3;
 }
 
 // ==========================================================================
@@ -415,6 +422,8 @@ void AbcdEspComponent::handle_ack_response(const InfinityFrame &frame) {
     parse_tstat_state(reg_data, reg_len);
   } else if (table == TBL_SAM_INFO && row == ROW_SAM_ZONES) {
     parse_tstat_zones(reg_data, reg_len);
+  } else if (table == TBL_SAM_INFO && row == ROW_SAM_VACATION) {
+    parse_vacation(reg_data, reg_len);
   }
 }
 
@@ -617,6 +626,27 @@ void AbcdEspComponent::parse_heatpump_02(const uint8_t *data,
 }
 
 // ==========================================================================
+// Parse 3B04 — vacation settings (11 bytes)
+// Layout: [0]=vacation_active, [1-2]=days*7(BE), [3]=mintemp, [4]=maxtemp,
+//         [5]=minhumidity, [6]=maxhumidity, [7]=fanmode
+// ==========================================================================
+void AbcdEspComponent::parse_vacation(const uint8_t *data, uint8_t len) {
+  if (len < 1) {
+    return;
+  }
+
+  bool was_active = vacation_active_;
+  vacation_active_ = (data[0] != 0);
+
+  ESP_LOGD(TAG, "3B04: vacation=%s", vacation_active_ ? "active" : "off");
+
+  if (!vacation_initialized_ || vacation_active_ != was_active) {
+    vacation_initialized_ = true;
+    publish_climate_state();
+  }
+}
+
+// ==========================================================================
 // Climate traits
 // ==========================================================================
 climate::ClimateTraits AbcdEspComponent::traits() {
@@ -640,6 +670,11 @@ climate::ClimateTraits AbcdEspComponent::traits() {
       climate::CLIMATE_FAN_LOW,
       climate::CLIMATE_FAN_MEDIUM,
       climate::CLIMATE_FAN_HIGH,
+  });
+
+  traits.set_supported_presets({
+      climate::CLIMATE_PRESET_HOME,
+      climate::CLIMATE_PRESET_AWAY,
   });
 
   return traits;
@@ -794,6 +829,35 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
 
   // Note: state is NOT optimistically updated here.
   // The next poll of 3B02/3B03 will confirm the thermostat accepted the change.
+
+  // Handle preset change (vacation via 3B04)
+  if (call.get_preset().has_value()) {
+    auto preset = *call.get_preset();
+    if (preset == climate::CLIMATE_PRESET_AWAY && !vacation_active_) {
+      // Activate vacation with default settings:
+      // 7 days, min 55°F, max 85°F, 15% min humidity, 60% max humidity, fan auto
+      uint8_t vac_buf[8];
+      vac_buf[0] = 0x01;  // vacation_active = 1
+      vac_buf[1] = 0x00;  // days*7 high byte (7*7=49)
+      vac_buf[2] = 0x31;  // days*7 low byte (49)
+      vac_buf[3] = 55;    // min temp °F
+      vac_buf[4] = 85;    // max temp °F
+      vac_buf[5] = 15;    // min humidity
+      vac_buf[6] = 60;    // max humidity
+      vac_buf[7] = FAN_AUTO;
+      send_write_request(ADDR_TSTAT, TBL_SAM_INFO, ROW_SAM_VACATION,
+                         vac_buf, 8);
+      ESP_LOGI(TAG, "Activating vacation mode (7 days, 55-85F)");
+    } else if (preset == climate::CLIMATE_PRESET_HOME && vacation_active_) {
+      // Deactivate vacation
+      uint8_t vac_buf[8];
+      memset(vac_buf, 0, sizeof(vac_buf));
+      vac_buf[0] = 0x00;  // vacation_active = 0
+      send_write_request(ADDR_TSTAT, TBL_SAM_INFO, ROW_SAM_VACATION,
+                         vac_buf, 8);
+      ESP_LOGI(TAG, "Deactivating vacation mode");
+    }
+  }
 }
 
 // ==========================================================================
@@ -883,6 +947,12 @@ void AbcdEspComponent::publish_climate_state() {
     this->action = climate::CLIMATE_ACTION_IDLE;
   }
 
+  // Preset
+  if (vacation_initialized_) {
+    this->preset = vacation_active_ ? climate::CLIMATE_PRESET_AWAY
+                                    : climate::CLIMATE_PRESET_HOME;
+  }
+
   this->publish_state();
 }
 
@@ -906,8 +976,15 @@ void AbcdEspComponent::publish_sensors() {
     prev_blower_running_ = blower_running_;
   }
 
-  if (heat_stage_sensor_ != nullptr && heat_stage_ != prev_heat_stage_) {
-    heat_stage_sensor_->publish_state(static_cast<float>(heat_stage_));
+  if (heat_stage_ != prev_heat_stage_) {
+    if (heat_stage_sensor_ != nullptr) {
+      heat_stage_sensor_->publish_state(static_cast<float>(heat_stage_));
+    }
+    if (heat_stage_text_sensor_ != nullptr) {
+      static const char *const kHeatStageLabels[] = {"Off", "Low", "Med", "High"};
+      uint8_t idx = (heat_stage_ <= 3) ? heat_stage_ : 0;
+      heat_stage_text_sensor_->publish_state(kHeatStageLabels[idx]);
+    }
     prev_heat_stage_ = heat_stage_;
   }
 
@@ -943,6 +1020,7 @@ void AbcdEspComponent::dump_config() {
   LOG_SENSOR("  ", "Airflow CFM", airflow_cfm_sensor_);
   LOG_BINARY_SENSOR("  ", "Blower", blower_sensor_);
   LOG_SENSOR("  ", "Heat Stage", heat_stage_sensor_);
+  LOG_TEXT_SENSOR("  ", "Heat Stage Label", heat_stage_text_sensor_);
   LOG_SENSOR("  ", "Indoor Humidity", indoor_humidity_sensor_);
   LOG_SENSOR("  ", "HP Coil Temp", hp_coil_temp_sensor_);
   LOG_SENSOR("  ", "HP Stage", hp_stage_sensor_);

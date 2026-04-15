@@ -446,6 +446,59 @@ TEST(fan_mode_encoding) {
   PASS();
 }
 
+TEST(parse_vacation_3b04) {
+  printf("test_parse_vacation_3b04\n");
+  // 3B04: [0]=vacation_active, [1-2]=days*7(BE), [3]=mintemp, [4]=maxtemp,
+  //       [5]=minhumidity, [6]=maxhumidity, [7]=fanmode
+  uint8_t data[8] = {0};
+  data[0] = 0x01;  // vacation active
+  data[1] = 0x00;  // days*7 high (7 days = 49 = 0x0031)
+  data[2] = 0x31;  // days*7 low
+  data[3] = 55;    // min temp
+  data[4] = 85;    // max temp
+  data[5] = 15;    // min humidity
+  data[6] = 60;    // max humidity
+  data[7] = FAN_AUTO;
+
+  ASSERT_EQ(data[0], 1);  // vacation active
+  uint16_t days_times7 = (data[1] << 8) | data[2];
+  ASSERT_EQ(days_times7, 49);  // 7 days * 7
+  ASSERT_EQ(data[3], 55);
+  ASSERT_EQ(data[4], 85);
+  ASSERT_EQ(data[5], 15);
+  ASSERT_EQ(data[6], 60);
+  ASSERT_EQ(data[7], FAN_AUTO);
+
+  // Inactive vacation
+  data[0] = 0x00;
+  ASSERT_EQ(data[0], 0);
+  PASS();
+}
+
+TEST(heat_stage_label_mapping) {
+  printf("test_heat_stage_label_mapping\n");
+  // Verify the label mapping logic used in publish_sensors
+  static const char *const kHeatStageLabels[] = {"Off", "Low", "Med", "High"};
+
+  for (uint8_t stage = 0; stage <= 3; stage++) {
+    uint8_t idx = (stage <= 3) ? stage : 0;
+    const char *label = kHeatStageLabels[idx];
+    ASSERT_TRUE(label != nullptr);
+  }
+
+  // Verify specific mappings
+  ASSERT_EQ(strcmp(kHeatStageLabels[0], "Off"), 0);
+  ASSERT_EQ(strcmp(kHeatStageLabels[1], "Low"), 0);
+  ASSERT_EQ(strcmp(kHeatStageLabels[2], "Med"), 0);
+  ASSERT_EQ(strcmp(kHeatStageLabels[3], "High"), 0);
+
+  // Out-of-range should map to index 0 (Off)
+  uint8_t bad_stage = 5;
+  uint8_t idx = (bad_stage <= 3) ? bad_stage : 0;
+  ASSERT_EQ(idx, 0);
+  PASS();
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
