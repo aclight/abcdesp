@@ -59,6 +59,7 @@ sensor:
     accuracy_decimals: 0
     icon: "mdi:fan"
     state_class: measurement
+    entity_category: diagnostic
 
   - platform: template
     name: "Heat Stage"
@@ -66,6 +67,7 @@ sensor:
     accuracy_decimals: 0
     icon: "mdi:fire"
     state_class: measurement
+    entity_category: diagnostic
 
   - platform: template
     name: "Indoor Humidity"
@@ -82,6 +84,7 @@ sensor:
     accuracy_decimals: 1
     device_class: temperature
     state_class: measurement
+    entity_category: diagnostic
 
   - platform: template
     name: "HP Stage"
@@ -89,16 +92,19 @@ sensor:
     accuracy_decimals: 0
     icon: "mdi:heat-pump"
     state_class: measurement
+    entity_category: diagnostic
 
 binary_sensor:
   - platform: template
     name: "Blower Running"
     id: blower_running
+    entity_category: diagnostic
 
   - platform: template
     name: "Communication OK"
     id: comms_ok
     device_class: connectivity
+    entity_category: diagnostic
 
 switch:
   - platform: template

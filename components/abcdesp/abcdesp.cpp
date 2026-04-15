@@ -573,7 +573,8 @@ climate::ClimateTraits AbcdEspComponent::traits() {
                            climate::CLIMATE_REQUIRES_TWO_POINT_TARGET_TEMPERATURE);
   traits.set_visual_min_temperature(f_to_c(40));   // 40°F ≈ 4.4°C
   traits.set_visual_max_temperature(f_to_c(99));   // 99°F ≈ 37.2°C
-  traits.set_visual_temperature_step(f_to_c(33));  // 1°F step ≈ 0.56°C
+  traits.set_visual_target_temperature_step(0.5);   // 0.5°C step, rounds to nearest °F
+  traits.set_visual_current_temperature_step(0.1);  // 0.1°C for display precision
 
   traits.set_supported_modes({
       climate::CLIMATE_MODE_OFF,
