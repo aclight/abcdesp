@@ -1,6 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import climate, sensor, binary_sensor, uart
+from esphome.components import climate, sensor, binary_sensor, switch, uart
 from esphome import pins
 
 DEPENDENCIES = ["uart"]
@@ -16,6 +16,7 @@ CONF_OUTDOOR_TEMP_SENSOR = "outdoor_temp_sensor"
 CONF_AIRFLOW_CFM_SENSOR = "airflow_cfm_sensor"
 CONF_BLOWER_SENSOR = "blower_sensor"
 CONF_HEAT_STAGE_SENSOR = "heat_stage_sensor"
+CONF_ALLOW_CONTROL_SWITCH = "allow_control_switch"
 
 CONFIG_SCHEMA = (
     climate.climate_schema(AbcdEspComponent)
@@ -26,6 +27,7 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_AIRFLOW_CFM_SENSOR): cv.use_id(sensor.Sensor),
             cv.Optional(CONF_BLOWER_SENSOR): cv.use_id(binary_sensor.BinarySensor),
             cv.Optional(CONF_HEAT_STAGE_SENSOR): cv.use_id(sensor.Sensor),
+            cv.Optional(CONF_ALLOW_CONTROL_SWITCH): cv.use_id(switch.Switch),
         }
     )
     .extend(uart.UART_DEVICE_SCHEMA)
@@ -55,3 +57,7 @@ async def to_code(config):
     if CONF_HEAT_STAGE_SENSOR in config:
         sens = await cg.get_variable(config[CONF_HEAT_STAGE_SENSOR])
         cg.add(var.set_heat_stage_sensor(sens))
+
+    if CONF_ALLOW_CONTROL_SWITCH in config:
+        sw = await cg.get_variable(config[CONF_ALLOW_CONTROL_SWITCH])
+        cg.add(var.set_allow_control_switch(sw))

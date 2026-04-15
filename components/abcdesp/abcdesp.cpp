@@ -543,8 +543,8 @@ void AbcdEspComponent::parse_heatpump_02(const uint8_t *data,
 // ==========================================================================
 climate::ClimateTraits AbcdEspComponent::traits() {
   auto traits = climate::ClimateTraits();
-  traits.set_supports_current_temperature(true);
-  traits.set_supports_two_point_target_temperature(true);
+  traits.add_feature_flags(climate::CLIMATE_SUPPORTS_CURRENT_TEMPERATURE |
+                           climate::CLIMATE_REQUIRES_TWO_POINT_TARGET_TEMPERATURE);
   traits.set_visual_min_temperature(40);
   traits.set_visual_max_temperature(99);
   traits.set_visual_temperature_step(1);
@@ -570,6 +570,12 @@ climate::ClimateTraits AbcdEspComponent::traits() {
 // Climate control — handle HA calls to change mode/setpoint/fan
 // ==========================================================================
 void AbcdEspComponent::control(const climate::ClimateCall &call) {
+  // Block control when Allow Control switch is off (or not configured)
+  if (allow_control_switch_ == nullptr || !allow_control_switch_->state) {
+    ESP_LOGW(TAG, "Control blocked: Allow Control switch is OFF");
+    return;
+  }
+
   // Build a 3B03 write payload with flag header
   // Layout: [0]=zone_bitmap, [1-2]=field_flags(BE), [3..]=zone data
   // We only write zone 1 fields.
