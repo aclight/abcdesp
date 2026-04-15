@@ -29,9 +29,7 @@ _(All planned sensors have been implemented.)_
 
 ## Entity Improvements
 
-- **Fahrenheit/Celsius** — declare native temperature unit so Home Assistant can convert for users configured for Celsius
-- **Heat stage labels** — map raw values (0–3) to meaningful labels (off/low/med/high) via a text sensor or enum
-- **Blower device_class** — fix invalid `device_class: running` on the blower binary sensor
+- **Heat stage labels** — map raw heat stage values (0–3) to meaningful labels (off/low/med/high) via a text sensor or HA template
 
 ## Other
 

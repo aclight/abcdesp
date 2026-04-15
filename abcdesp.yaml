@@ -4,8 +4,9 @@ esphome:
 
 external_components:
   - source:
-      type: local
-      path: components
+      type: git
+      url: https://github.com/aclight/abcdesp
+      ref: main
     components: [abcdesp]
 
 esp32:
@@ -93,7 +94,6 @@ binary_sensor:
   - platform: template
     name: "Blower Running"
     id: blower_running
-    device_class: running
 
   - platform: template
     name: "Communication OK"
