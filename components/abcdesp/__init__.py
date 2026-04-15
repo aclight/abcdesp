@@ -3,8 +3,10 @@ import esphome.config_validation as cv
 from esphome.components import climate, sensor, text_sensor, binary_sensor, switch, button, uart
 from esphome.const import (
     DEVICE_CLASS_HUMIDITY,
+    DEVICE_CLASS_RUNNING,
     DEVICE_CLASS_TEMPERATURE,
     DEVICE_CLASS_CONNECTIVITY,
+    ENTITY_CATEGORY_CONFIG,
     ENTITY_CATEGORY_DIAGNOSTIC,
     ICON_FAN,
     STATE_CLASS_MEASUREMENT,
@@ -33,6 +35,7 @@ CONF_ALLOW_CONTROL_SWITCH = "allow_control_switch"
 CONF_INDOOR_HUMIDITY_SENSOR = "indoor_humidity_sensor"
 CONF_HP_COIL_TEMP_SENSOR = "hp_coil_temp_sensor"
 CONF_HP_STAGE_SENSOR = "hp_stage_sensor"
+CONF_HP_STAGE_TEXT_SENSOR = "hp_stage_text_sensor"
 CONF_COMMS_OK_SENSOR = "comms_ok_sensor"
 CONF_HOLD_ACTIVE_SENSOR = "hold_active_sensor"
 CONF_CLEAR_HOLD_BUTTON = "clear_hold_button"
@@ -84,7 +87,12 @@ CONFIG_SCHEMA = (
                 state_class=STATE_CLASS_MEASUREMENT,
                 entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
+            cv.Optional(CONF_HP_STAGE_TEXT_SENSOR): text_sensor.text_sensor_schema(
+                icon="mdi:heat-pump",
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
             cv.Optional(CONF_BLOWER_SENSOR): binary_sensor.binary_sensor_schema(
+                device_class=DEVICE_CLASS_RUNNING,
                 entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
             cv.Optional(CONF_COMMS_OK_SENSOR): binary_sensor.binary_sensor_schema(
@@ -97,10 +105,12 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_CLEAR_HOLD_BUTTON): button.button_schema(
                 ClearHoldButton,
                 icon="mdi:hand-back-left-off",
+                entity_category=ENTITY_CATEGORY_CONFIG,
             ),
             cv.Optional(CONF_ALLOW_CONTROL_SWITCH): switch.switch_schema(
                 AllowControlSwitch,
                 icon="mdi:lock-open-variant",
+                entity_category=ENTITY_CATEGORY_CONFIG,
             ),
         }
     )
@@ -143,6 +153,10 @@ async def to_code(config):
     if CONF_HP_STAGE_SENSOR in config:
         sens = await sensor.new_sensor(config[CONF_HP_STAGE_SENSOR])
         cg.add(var.set_hp_stage_sensor(sens))
+
+    if CONF_HP_STAGE_TEXT_SENSOR in config:
+        sens = await text_sensor.new_text_sensor(config[CONF_HP_STAGE_TEXT_SENSOR])
+        cg.add(var.set_hp_stage_text_sensor(sens))
 
     if CONF_BLOWER_SENSOR in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_BLOWER_SENSOR])

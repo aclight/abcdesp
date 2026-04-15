@@ -55,6 +55,7 @@ impersonating a SAM (System Access Module).
 | Heat Stage | Sensor | Current heat stage (0=off, 1=low, 2=med, 3=high) |
 | HP Coil Temperature | Sensor | Heat pump coil temperature in °F |
 | HP Stage | Sensor | Heat pump compressor stage |
+| HP Stage Label | Text Sensor | Heat pump stage as text (Off/Low/High) |
 | Communication OK | Binary Sensor | Whether the ESP32 is receiving responses from the thermostat (goes offline after 30s of no response) |
 | Hold Active | Binary Sensor | Whether zone 1 is in hold mode (schedule overridden) |
 | Clear Hold | Button | Clears hold on zone 1, resuming the thermostat's built-in schedule (requires Allow Control ON) |

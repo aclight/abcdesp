@@ -127,6 +127,7 @@ class AbcdEspComponent : public Component,
   void set_indoor_humidity_sensor(sensor::Sensor *s) { indoor_humidity_sensor_ = s; }
   void set_hp_coil_temp_sensor(sensor::Sensor *s) { hp_coil_temp_sensor_ = s; }
   void set_hp_stage_sensor(sensor::Sensor *s) { hp_stage_sensor_ = s; }
+  void set_hp_stage_text_sensor(text_sensor::TextSensor *s) { hp_stage_text_sensor_ = s; }
   void set_comms_ok_sensor(binary_sensor::BinarySensor *s) { comms_ok_sensor_ = s; }
   void set_hold_active_sensor(binary_sensor::BinarySensor *s) { hold_active_sensor_ = s; }
   void set_clear_hold_button(ClearHoldButton *b) { clear_hold_button_ = b; }
@@ -247,6 +248,7 @@ class AbcdEspComponent : public Component,
   sensor::Sensor *indoor_humidity_sensor_{nullptr};
   sensor::Sensor *hp_coil_temp_sensor_{nullptr};
   sensor::Sensor *hp_stage_sensor_{nullptr};
+  text_sensor::TextSensor *hp_stage_text_sensor_{nullptr};
 
   // Control gate
   switch_::Switch *allow_control_switch_{nullptr};
