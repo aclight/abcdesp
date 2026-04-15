@@ -13,7 +13,43 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
 
       - name: Compile tests
-        run: g++ -std=c++17 -DUNIT_TEST -Wall -Wextra -o test_runner tests/test_protocol.cpp
+        run: g++ -std=c++17 -DUNIT_TEST -Wall -Wextra -Werror -o test_runner tests/test_protocol.cpp
 
       - name: Run tests
         run: ./test_runner
+
+  esphome-compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Cache ESPHome build artifacts
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae  # v5.0.5
+        with:
+          path: |
+            ~/.platformio
+            ~/.esphome
+          key: esphome-esp32-arduino-${{ runner.os }}-${{ hashFiles('abcdesp.yaml', 'abcdesp.h', 'abcdesp.cpp') }}
+          restore-keys: |
+            esphome-esp32-arduino-${{ runner.os }}-
+
+      - name: Install ESPHome
+        run: pip install esphome
+
+      - name: Create secrets.yaml
+        run: |
+          cat > secrets.yaml <<'EOF'
+          wifi_ssid: "ci-placeholder"
+          wifi_password: "ci-placeholder"
+          fallback_password: "ci-placeholder"
+          api_key: "0000000000000000000000000000000000000000000="
+          ota_password: "ci-placeholder"
+          EOF
+
+      - name: Compile for ESP32
+        run: esphome compile abcdesp.yaml
