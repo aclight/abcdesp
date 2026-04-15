@@ -110,7 +110,7 @@ external_components:
 ```
 
 2. See `abcdesp.yaml` in this repository for a complete example configuration.
-3. Create a `secrets.yaml` with your WiFi credentials, API key, and OTA password.
+3. Copy `secrets.yaml.example` to `secrets.yaml` and fill in your WiFi credentials, API key, and OTA password.
 4. Flash:
 
 ```bash
