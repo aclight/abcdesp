@@ -67,6 +67,8 @@ abcdesp:
     name: "HP Coil Temperature"
   hp_stage_sensor:
     name: "HP Stage"
+  hp_stage_text_sensor:
+    name: "HP Stage Label"
   blower_sensor:
     name: "Blower Running"
   comms_ok_sensor:

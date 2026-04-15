@@ -999,8 +999,15 @@ void AbcdEspComponent::publish_sensors() {
     prev_hp_coil_temp_ = hp_coil_temp_;
   }
 
-  if (hp_stage_sensor_ != nullptr && hp_stage_ != prev_hp_stage_) {
-    hp_stage_sensor_->publish_state(static_cast<float>(hp_stage_));
+  if (hp_stage_ != prev_hp_stage_) {
+    if (hp_stage_sensor_ != nullptr) {
+      hp_stage_sensor_->publish_state(static_cast<float>(hp_stage_));
+    }
+    if (hp_stage_text_sensor_ != nullptr) {
+      static const char *const kHpStageLabels[] = {"Off", "Low", "High"};
+      uint8_t idx = (hp_stage_ <= 2) ? hp_stage_ : 0;
+      hp_stage_text_sensor_->publish_state(kHpStageLabels[idx]);
+    }
     prev_hp_stage_ = hp_stage_;
   }
 }
@@ -1024,6 +1031,7 @@ void AbcdEspComponent::dump_config() {
   LOG_SENSOR("  ", "Indoor Humidity", indoor_humidity_sensor_);
   LOG_SENSOR("  ", "HP Coil Temp", hp_coil_temp_sensor_);
   LOG_SENSOR("  ", "HP Stage", hp_stage_sensor_);
+  LOG_TEXT_SENSOR("  ", "HP Stage Label", hp_stage_text_sensor_);
   LOG_BINARY_SENSOR("  ", "Comms OK", comms_ok_sensor_);
   LOG_BINARY_SENSOR("  ", "Hold Active", hold_active_sensor_);
   if (clear_hold_button_ != nullptr) {

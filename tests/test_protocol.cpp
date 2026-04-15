@@ -499,6 +499,29 @@ TEST(heat_stage_label_mapping) {
   PASS();
 }
 
+TEST(hp_stage_label_mapping) {
+  printf("test_hp_stage_label_mapping\n");
+  // Verify the HP stage label mapping logic used in publish_sensors
+  static const char *const kHpStageLabels[] = {"Off", "Low", "High"};
+
+  for (uint8_t stage = 0; stage <= 2; stage++) {
+    uint8_t idx = (stage <= 2) ? stage : 0;
+    const char *label = kHpStageLabels[idx];
+    ASSERT_TRUE(label != nullptr);
+  }
+
+  // Verify specific mappings
+  ASSERT_EQ(strcmp(kHpStageLabels[0], "Off"), 0);
+  ASSERT_EQ(strcmp(kHpStageLabels[1], "Low"), 0);
+  ASSERT_EQ(strcmp(kHpStageLabels[2], "High"), 0);
+
+  // Out-of-range should map to index 0 (Off)
+  uint8_t bad_stage = 5;
+  uint8_t idx = (bad_stage <= 2) ? bad_stage : 0;
+  ASSERT_EQ(idx, 0);
+  PASS();
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
