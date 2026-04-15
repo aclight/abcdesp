@@ -3,6 +3,7 @@
 #include "esphome/core/component.h"
 #include "esphome/components/climate/climate.h"
 #include "esphome/components/sensor/sensor.h"
+#include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/switch/switch.h"
 #include "esphome/components/button/button.h"
@@ -37,6 +38,7 @@ static const uint8_t REG_PREFIX         = 0x00;
 static const uint8_t TBL_SAM_INFO       = 0x3B;
 static const uint8_t ROW_SAM_STATE      = 0x02;  // 3B02 — temps, mode
 static const uint8_t ROW_SAM_ZONES      = 0x03;  // 3B03 — setpoints, fan
+static const uint8_t ROW_SAM_VACATION   = 0x04;  // 3B04 — vacation settings
 static const uint8_t ROW_SAM_ACK        = 0x0E;  // 3B0E — ack from tstat
 
 static const uint8_t TBL_RLCSMAIN      = 0x03;
@@ -101,6 +103,14 @@ class ClearHoldButton : public button::Button {
 };
 
 // ---------------------------------------------------------------------------
+// Allow Control switch — optimistic toggle, defaults to OFF on boot
+// ---------------------------------------------------------------------------
+class AllowControlSwitch : public switch_::Switch {
+ protected:
+  void write_state(bool state) override { publish_state(state); }
+};
+
+// ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
 class AbcdEspComponent : public Component,
@@ -112,6 +122,7 @@ class AbcdEspComponent : public Component,
   void set_airflow_cfm_sensor(sensor::Sensor *s) { airflow_cfm_sensor_ = s; }
   void set_blower_sensor(binary_sensor::BinarySensor *s) { blower_sensor_ = s; }
   void set_heat_stage_sensor(sensor::Sensor *s) { heat_stage_sensor_ = s; }
+  void set_heat_stage_text_sensor(text_sensor::TextSensor *s) { heat_stage_text_sensor_ = s; }
   void set_allow_control_switch(switch_::Switch *sw) { allow_control_switch_ = sw; }
   void set_indoor_humidity_sensor(sensor::Sensor *s) { indoor_humidity_sensor_ = s; }
   void set_hp_coil_temp_sensor(sensor::Sensor *s) { hp_coil_temp_sensor_ = s; }
@@ -164,6 +175,8 @@ class AbcdEspComponent : public Component,
   void parse_airhandler_16(const uint8_t *data, uint8_t len);
   void parse_heatpump_01(const uint8_t *data, uint8_t len);
   void parse_heatpump_02(const uint8_t *data, uint8_t len);
+  void parse_vacation(const uint8_t *data, uint8_t len);
+  void parse_vacation(const uint8_t *data, uint8_t len);
 
   // Polling
   void poll_thermostat();
@@ -202,6 +215,14 @@ class AbcdEspComponent : public Component,
   uint8_t cool_setpoint_{74};
   uint8_t zone_hold_{0};
 
+  // Vacation state
+  bool vacation_active_{false};
+  bool vacation_initialized_{false};
+
+  // Vacation state
+  bool vacation_active_{false};
+  bool vacation_initialized_{false};
+
   // Air handler state
   uint16_t blower_rpm_{0};
   uint16_t airflow_cfm_{0};
@@ -227,6 +248,7 @@ class AbcdEspComponent : public Component,
   sensor::Sensor *airflow_cfm_sensor_{nullptr};
   binary_sensor::BinarySensor *blower_sensor_{nullptr};
   sensor::Sensor *heat_stage_sensor_{nullptr};
+  text_sensor::TextSensor *heat_stage_text_sensor_{nullptr};
   sensor::Sensor *indoor_humidity_sensor_{nullptr};
   sensor::Sensor *hp_coil_temp_sensor_{nullptr};
   sensor::Sensor *hp_stage_sensor_{nullptr};

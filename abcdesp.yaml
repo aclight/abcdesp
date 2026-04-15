@@ -43,14 +43,6 @@ uart:
   stop_bits: 1
   parity: NONE
 
-switch:
-  - platform: template
-    name: "Allow Control"
-    id: allow_control
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
-    icon: "mdi:lock-open-variant"
-
 abcdesp:
   name: "HVAC"
   icon: "mdi:hvac"
@@ -59,7 +51,8 @@ abcdesp:
     number: GPIO4
     mode:
       output: true
-  allow_control_switch: allow_control
+  allow_control_switch:
+    name: "Allow Control"
   outdoor_temp_sensor:
     name: "Outdoor Temperature"
   indoor_humidity_sensor:
@@ -68,6 +61,8 @@ abcdesp:
     name: "Airflow CFM"
   heat_stage_sensor:
     name: "Heat Stage"
+  heat_stage_text_sensor:
+    name: "Heat Stage Label"
   hp_coil_temp_sensor:
     name: "HP Coil Temperature"
   hp_stage_sensor:

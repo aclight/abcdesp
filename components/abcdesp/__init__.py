@@ -1,6 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import climate, sensor, binary_sensor, switch, button, uart
+from esphome.components import climate, sensor, text_sensor, binary_sensor, switch, button, uart
 from esphome.const import (
     DEVICE_CLASS_HUMIDITY,
     DEVICE_CLASS_TEMPERATURE,
@@ -14,19 +14,21 @@ from esphome.const import (
 from esphome import pins
 
 DEPENDENCIES = ["uart"]
-AUTO_LOAD = ["climate", "sensor", "binary_sensor", "button"]
+AUTO_LOAD = ["climate", "sensor", "text_sensor", "binary_sensor", "switch", "button"]
 
 abcdesp_ns = cg.esphome_ns.namespace("abcdesp")
 AbcdEspComponent = abcdesp_ns.class_(
     "AbcdEspComponent", cg.Component, climate.Climate, uart.UARTDevice
 )
 ClearHoldButton = abcdesp_ns.class_("ClearHoldButton", button.Button)
+AllowControlSwitch = abcdesp_ns.class_("AllowControlSwitch", switch.Switch)
 
 CONF_FLOW_PIN = "flow_pin"
 CONF_OUTDOOR_TEMP_SENSOR = "outdoor_temp_sensor"
 CONF_AIRFLOW_CFM_SENSOR = "airflow_cfm_sensor"
 CONF_BLOWER_SENSOR = "blower_sensor"
 CONF_HEAT_STAGE_SENSOR = "heat_stage_sensor"
+CONF_HEAT_STAGE_TEXT_SENSOR = "heat_stage_text_sensor"
 CONF_ALLOW_CONTROL_SWITCH = "allow_control_switch"
 CONF_INDOOR_HUMIDITY_SENSOR = "indoor_humidity_sensor"
 CONF_HP_COIL_TEMP_SENSOR = "hp_coil_temp_sensor"
@@ -65,6 +67,10 @@ CONFIG_SCHEMA = (
                 state_class=STATE_CLASS_MEASUREMENT,
                 entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
+            cv.Optional(CONF_HEAT_STAGE_TEXT_SENSOR): text_sensor.text_sensor_schema(
+                icon="mdi:fire",
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
             cv.Optional(CONF_HP_COIL_TEMP_SENSOR): sensor.sensor_schema(
                 unit_of_measurement="°F",
                 accuracy_decimals=1,
@@ -92,7 +98,10 @@ CONFIG_SCHEMA = (
                 ClearHoldButton,
                 icon="mdi:hand-back-left-off",
             ),
-            cv.Optional(CONF_ALLOW_CONTROL_SWITCH): cv.use_id(switch.Switch),
+            cv.Optional(CONF_ALLOW_CONTROL_SWITCH): switch.switch_schema(
+                AllowControlSwitch,
+                icon="mdi:lock-open-variant",
+            ),
         }
     )
     .extend(uart.UART_DEVICE_SCHEMA)
@@ -123,6 +132,10 @@ async def to_code(config):
         sens = await sensor.new_sensor(config[CONF_HEAT_STAGE_SENSOR])
         cg.add(var.set_heat_stage_sensor(sens))
 
+    if CONF_HEAT_STAGE_TEXT_SENSOR in config:
+        sens = await text_sensor.new_text_sensor(config[CONF_HEAT_STAGE_TEXT_SENSOR])
+        cg.add(var.set_heat_stage_text_sensor(sens))
+
     if CONF_HP_COIL_TEMP_SENSOR in config:
         sens = await sensor.new_sensor(config[CONF_HP_COIL_TEMP_SENSOR])
         cg.add(var.set_hp_coil_temp_sensor(sens))
@@ -149,5 +162,5 @@ async def to_code(config):
         cg.add(var.set_clear_hold_button(btn))
 
     if CONF_ALLOW_CONTROL_SWITCH in config:
-        sw = await cg.get_variable(config[CONF_ALLOW_CONTROL_SWITCH])
+        sw = await switch.new_switch(config[CONF_ALLOW_CONTROL_SWITCH])
         cg.add(var.set_allow_control_switch(sw))
