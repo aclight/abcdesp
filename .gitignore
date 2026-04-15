@@ -1,0 +1,24 @@
+# Build artifacts
+.esphome/
+.pio/
+.pioenvs/
+.piolibdeps/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Secrets
+secrets.yaml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test binaries
+tests/test_runner
+tests/test_runner.exe
+tests/*.o

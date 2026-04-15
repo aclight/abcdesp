@@ -1,0 +1,95 @@
+esphome:
+  name: abcdesp
+  friendly_name: ABCDESP HVAC
+  includes:
+    - abcdesp.h
+    - abcdesp.cpp
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+logger:
+  baud_rate: 0  # disable logging on UART0 to avoid bus noise
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "ABCDESP-Fallback"
+    password: !secret fallback_password
+
+captive_portal:
+
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+uart:
+  id: abcdesp_uart
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 38400
+  data_bits: 8
+  stop_bits: 1
+  parity: NONE
+
+sensor:
+  - platform: custom
+    lambda: |-
+      // Sensors are registered via the custom component below
+      return {};
+    sensors: []
+
+  - platform: template
+    name: "Outdoor Temperature"
+    id: outdoor_temp
+    unit_of_measurement: "°F"
+    accuracy_decimals: 1
+    device_class: temperature
+    state_class: measurement
+
+  - platform: template
+    name: "Airflow CFM"
+    id: airflow_cfm
+    unit_of_measurement: "CFM"
+    accuracy_decimals: 0
+    icon: "mdi:fan"
+    state_class: measurement
+
+  - platform: template
+    name: "Heat Stage"
+    id: heat_stage
+    accuracy_decimals: 0
+    icon: "mdi:fire"
+    state_class: measurement
+
+binary_sensor:
+  - platform: template
+    name: "Blower Running"
+    id: blower_running
+    device_class: running
+
+climate:
+  - platform: custom
+    lambda: |-
+      auto hvac = new esphome::abcdesp::AbcdEspComponent();
+      hvac->set_uart_parent(id(abcdesp_uart));
+      auto flow_pin = new GPIOPin();
+      flow_pin->set_pin(GPIO_NUM_4);
+      flow_pin->set_inverted(false);
+      flow_pin->set_flags(gpio::FLAG_OUTPUT);
+      hvac->set_flow_pin(flow_pin);
+      hvac->set_outdoor_temp_sensor(id(outdoor_temp));
+      hvac->set_airflow_cfm_sensor(id(airflow_cfm));
+      hvac->set_blower_sensor(id(blower_running));
+      hvac->set_heat_stage_sensor(id(heat_stage));
+      App.register_component(hvac);
+      return {hvac};
+    climates:
+      - name: "HVAC"
