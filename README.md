@@ -81,9 +81,18 @@ To enable control, toggle the **Allow Control** switch in Home Assistant. The sw
 
 ## Hold Behavior
 
-When you change setpoints from Home Assistant, the component places the thermostat into **hold** mode. This means the thermostat's built-in schedule is overridden until the hold is cleared.
+When you change setpoints from Home Assistant, the component places the thermostat into **hold** mode. This means the thermostat's built-in schedule is overridden.
 
-To resume the thermostat's schedule, press the **Clear Hold** button in Home Assistant (requires the Allow Control switch to be ON). You can also clear the hold at the thermostat itself.
+By default, hold is **permanent** (matching the thermostat's native behavior when you adjust setpoints at the unit). To use a **temporary hold** that automatically clears after a set time, add the `hold_duration_minutes` option:
+
+```yaml
+abcdesp:
+  hold_duration_minutes: 120  # auto-clear hold after 2 hours (0 = permanent, default)
+```
+
+When a temporary hold expires, the component sends a clear-hold command and the thermostat resumes its built-in schedule. If the ESP32 reboots during a temporary hold, the hold will persist as permanent (the timer is not saved across reboots).
+
+To clear a hold manually at any time, press the **Clear Hold** button in Home Assistant (requires the Allow Control switch to be ON). You can also clear the hold at the thermostat itself.
 
 The **Hold Active** binary sensor shows whether zone 1 is currently in hold mode.
 

@@ -39,6 +39,7 @@ CONF_HP_STAGE_TEXT_SENSOR = "hp_stage_text_sensor"
 CONF_COMMS_OK_SENSOR = "comms_ok_sensor"
 CONF_HOLD_ACTIVE_SENSOR = "hold_active_sensor"
 CONF_CLEAR_HOLD_BUTTON = "clear_hold_button"
+CONF_HOLD_DURATION_MINUTES = "hold_duration_minutes"
 
 CONFIG_SCHEMA = (
     climate.climate_schema(AbcdEspComponent)
@@ -112,6 +113,9 @@ CONFIG_SCHEMA = (
                 icon="mdi:lock-open-variant",
                 entity_category=ENTITY_CATEGORY_CONFIG,
             ),
+            cv.Optional(CONF_HOLD_DURATION_MINUTES, default=0): cv.int_range(
+                min=0, max=1440
+            ),
         }
     )
     .extend(uart.UART_DEVICE_SCHEMA)
@@ -178,3 +182,5 @@ async def to_code(config):
     if CONF_ALLOW_CONTROL_SWITCH in config:
         sw = await switch.new_switch(config[CONF_ALLOW_CONTROL_SWITCH])
         cg.add(var.set_allow_control_switch(sw))
+
+    cg.add(var.set_hold_duration_minutes(config[CONF_HOLD_DURATION_MINUTES]))

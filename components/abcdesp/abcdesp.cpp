@@ -306,6 +306,15 @@ void AbcdEspComponent::loop() {
     last_poll_ms_ = now;
   }
 
+  // --- Auto-clear temporary hold ---
+  if (hold_duration_minutes_ > 0 && hold_set_ms_ > 0 &&
+      (now - hold_set_ms_ >= static_cast<uint32_t>(hold_duration_minutes_) * 60000U)) {
+    ESP_LOGI(TAG, "Temporary hold expired after %d minutes — clearing",
+             hold_duration_minutes_);
+    hold_set_ms_ = 0;
+    clear_hold();
+  }
+
   // --- Send pending write if gap is satisfied ---
   if (write_pending_ && !awaiting_response_ &&
       (now - last_send_ms_ >= MIN_FRAME_GAP_MS)) {
@@ -804,6 +813,7 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
     if (setpoints_changed) {
       write_buf_[11] = 0x01;
       flags |= 0x0002;
+      hold_set_ms_ = millis();
     }
     write_buf_[1] = (flags >> 8) & 0xFF;
     write_buf_[2] = flags & 0xFF;
@@ -1020,6 +1030,11 @@ void AbcdEspComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "  SAM Address: 0x%04X", ADDR_SAM);
   ESP_LOGCONFIG(TAG, "  Thermostat Address: 0x%04X", ADDR_TSTAT);
   ESP_LOGCONFIG(TAG, "  Poll Interval: %d ms", POLL_INTERVAL_MS);
+  if (hold_duration_minutes_ > 0) {
+    ESP_LOGCONFIG(TAG, "  Hold Duration: %d minutes (temporary)", hold_duration_minutes_);
+  } else {
+    ESP_LOGCONFIG(TAG, "  Hold Duration: permanent");
+  }
   if (flow_pin_ != nullptr) {
     LOG_PIN("  Flow Control Pin: ", flow_pin_);
   }
@@ -1063,6 +1078,7 @@ void AbcdEspComponent::clear_hold() {
 
   write_len_ = 28;
   write_pending_ = true;
+  hold_set_ms_ = 0;  // cancel any pending auto-clear
 
   ESP_LOGI(TAG, "Queued clear hold for zone 1");
 }
