@@ -72,6 +72,14 @@ binary_sensor:
     id: blower_running
     device_class: running
 
+switch:
+  - platform: template
+    name: "Allow Control"
+    id: allow_control
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    icon: "mdi:lock-open-variant"
+
 abcdesp:
   name: "HVAC"
   uart_id: abcdesp_uart
@@ -83,3 +91,4 @@ abcdesp:
   airflow_cfm_sensor: airflow_cfm
   blower_sensor: blower_running
   heat_stage_sensor: heat_stage
+  allow_control_switch: allow_control

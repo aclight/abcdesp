@@ -570,6 +570,12 @@ climate::ClimateTraits AbcdEspComponent::traits() {
 // Climate control — handle HA calls to change mode/setpoint/fan
 // ==========================================================================
 void AbcdEspComponent::control(const climate::ClimateCall &call) {
+  // Block control when Allow Control switch is off (or not configured)
+  if (allow_control_switch_ == nullptr || !allow_control_switch_->state) {
+    ESP_LOGW(TAG, "Control blocked: Allow Control switch is OFF");
+    return;
+  }
+
   // Build a 3B03 write payload with flag header
   // Layout: [0]=zone_bitmap, [1-2]=field_flags(BE), [3..]=zone data
   // We only write zone 1 fields.

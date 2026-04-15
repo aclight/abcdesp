@@ -4,6 +4,7 @@
 #include "esphome/components/climate/climate.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
+#include "esphome/components/switch/switch.h"
 #include "esphome/components/uart/uart.h"
 
 namespace esphome {
@@ -90,6 +91,7 @@ class AbcdEspComponent : public Component,
   void set_airflow_cfm_sensor(sensor::Sensor *s) { airflow_cfm_sensor_ = s; }
   void set_blower_sensor(binary_sensor::BinarySensor *s) { blower_sensor_ = s; }
   void set_heat_stage_sensor(sensor::Sensor *s) { heat_stage_sensor_ = s; }
+  void set_allow_control_switch(switch_::Switch *sw) { allow_control_switch_ = sw; }
 
   // Component overrides
   void setup() override;
@@ -176,6 +178,9 @@ class AbcdEspComponent : public Component,
   sensor::Sensor *airflow_cfm_sensor_{nullptr};
   binary_sensor::BinarySensor *blower_sensor_{nullptr};
   sensor::Sensor *heat_stage_sensor_{nullptr};
+
+  // Control gate
+  switch_::Switch *allow_control_switch_{nullptr};
 
   // Publish helpers
   void publish_climate_state();
