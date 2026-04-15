@@ -66,6 +66,29 @@ sensor:
     icon: "mdi:fire"
     state_class: measurement
 
+  - platform: template
+    name: "Indoor Humidity"
+    id: indoor_humidity
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    device_class: humidity
+    state_class: measurement
+
+  - platform: template
+    name: "HP Coil Temperature"
+    id: hp_coil_temp
+    unit_of_measurement: "°F"
+    accuracy_decimals: 1
+    device_class: temperature
+    state_class: measurement
+
+  - platform: template
+    name: "HP Stage"
+    id: hp_stage
+    accuracy_decimals: 0
+    icon: "mdi:heat-pump"
+    state_class: measurement
+
 binary_sensor:
   - platform: template
     name: "Blower Running"
@@ -92,3 +115,6 @@ abcdesp:
   blower_sensor: blower_running
   heat_stage_sensor: heat_stage
   allow_control_switch: allow_control
+  indoor_humidity_sensor: indoor_humidity
+  hp_coil_temp_sensor: hp_coil_temp
+  hp_stage_sensor: hp_stage

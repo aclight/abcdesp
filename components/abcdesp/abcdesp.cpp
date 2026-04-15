@@ -536,6 +536,7 @@ void AbcdEspComponent::parse_heatpump_02(const uint8_t *data,
   }
   hp_stage_ = data[0] >> 1;
   ESP_LOGD(TAG, "3E02: HP stage=%d", hp_stage_);
+  publish_sensors();
 }
 
 // ==========================================================================
@@ -792,6 +793,18 @@ void AbcdEspComponent::publish_sensors() {
   if (heat_stage_sensor_ != nullptr) {
     heat_stage_sensor_->publish_state(static_cast<float>(heat_stage_));
   }
+
+  if (indoor_humidity_sensor_ != nullptr) {
+    indoor_humidity_sensor_->publish_state(static_cast<float>(indoor_humidity_));
+  }
+
+  if (hp_coil_temp_sensor_ != nullptr && !std::isnan(hp_coil_temp_)) {
+    hp_coil_temp_sensor_->publish_state(hp_coil_temp_);
+  }
+
+  if (hp_stage_sensor_ != nullptr) {
+    hp_stage_sensor_->publish_state(static_cast<float>(hp_stage_));
+  }
 }
 
 // ==========================================================================
@@ -809,6 +822,9 @@ void AbcdEspComponent::dump_config() {
   LOG_SENSOR("  ", "Airflow CFM", airflow_cfm_sensor_);
   LOG_BINARY_SENSOR("  ", "Blower", blower_sensor_);
   LOG_SENSOR("  ", "Heat Stage", heat_stage_sensor_);
+  LOG_SENSOR("  ", "Indoor Humidity", indoor_humidity_sensor_);
+  LOG_SENSOR("  ", "HP Coil Temp", hp_coil_temp_sensor_);
+  LOG_SENSOR("  ", "HP Stage", hp_stage_sensor_);
 }
 
 }  // namespace abcdesp
