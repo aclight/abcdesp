@@ -176,7 +176,6 @@ class AbcdEspComponent : public Component,
   void parse_heatpump_01(const uint8_t *data, uint8_t len);
   void parse_heatpump_02(const uint8_t *data, uint8_t len);
   void parse_vacation(const uint8_t *data, uint8_t len);
-  void parse_vacation(const uint8_t *data, uint8_t len);
 
   // Polling
   void poll_thermostat();
@@ -214,10 +213,6 @@ class AbcdEspComponent : public Component,
   uint8_t heat_setpoint_{68};
   uint8_t cool_setpoint_{74};
   uint8_t zone_hold_{0};
-
-  // Vacation state
-  bool vacation_active_{false};
-  bool vacation_initialized_{false};
 
   // Vacation state
   bool vacation_active_{false};
