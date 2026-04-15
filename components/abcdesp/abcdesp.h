@@ -65,6 +65,9 @@ static const uint32_t TX_SETTLE_US            = 100;
 static const uint32_t MIN_FRAME_GAP_MS        = 50;
 static const uint16_t RX_BUF_SIZE             = 512;
 
+// Communication health — consider comms failed if no response in this many ms
+static const uint32_t COMMS_TIMEOUT_MS          = 30000;
+
 // CRC-16/ARC: poly 0x8005, reflected, init 0x0000
 static const uint16_t CRC_POLY          = 0xA001; // reflected 0x8005
 
@@ -95,6 +98,7 @@ class AbcdEspComponent : public Component,
   void set_indoor_humidity_sensor(sensor::Sensor *s) { indoor_humidity_sensor_ = s; }
   void set_hp_coil_temp_sensor(sensor::Sensor *s) { hp_coil_temp_sensor_ = s; }
   void set_hp_stage_sensor(sensor::Sensor *s) { hp_stage_sensor_ = s; }
+  void set_comms_ok_sensor(binary_sensor::BinarySensor *s) { comms_ok_sensor_ = s; }
 
   // Component overrides
   void setup() override;
@@ -150,6 +154,10 @@ class AbcdEspComponent : public Component,
   uint8_t pending_row_{0};
   uint8_t poll_step_{0};
 
+  // Communication health
+  uint32_t last_successful_response_ms_{0};
+  bool comms_ok_{false};
+
   // Pending write
   bool write_pending_{false};
   uint8_t write_buf_[160];
@@ -187,6 +195,9 @@ class AbcdEspComponent : public Component,
 
   // Control gate
   switch_::Switch *allow_control_switch_{nullptr};
+
+  // Communication health
+  binary_sensor::BinarySensor *comms_ok_sensor_{nullptr};
 
   // Publish helpers
   void publish_climate_state();

@@ -251,6 +251,16 @@ void AbcdEspComponent::loop() {
     awaiting_response_ = false;
   }
 
+  // --- Check communication health ---
+  if (comms_ok_ && last_successful_response_ms_ > 0 &&
+      (millis() - last_successful_response_ms_ > COMMS_TIMEOUT_MS)) {
+    comms_ok_ = false;
+    ESP_LOGW(TAG, "Communication lost — no response in %d ms", COMMS_TIMEOUT_MS);
+    if (comms_ok_sensor_ != nullptr) {
+      comms_ok_sensor_->publish_state(false);
+    }
+  }
+
   // --- Periodic polling of thermostat ---
   uint32_t now = millis();
   if (!awaiting_response_ && !write_pending_ &&
@@ -332,6 +342,15 @@ void AbcdEspComponent::handle_frame(const InfinityFrame &frame) {
 // ==========================================================================
 void AbcdEspComponent::handle_ack_response(const InfinityFrame &frame) {
   awaiting_response_ = false;
+  last_successful_response_ms_ = millis();
+
+  // Update comms health
+  if (!comms_ok_) {
+    comms_ok_ = true;
+    if (comms_ok_sensor_ != nullptr) {
+      comms_ok_sensor_->publish_state(true);
+    }
+  }
 
   if (frame.length <= 3) {
     return;  // Simple write-ack (data=0x00), nothing to parse
@@ -825,6 +844,7 @@ void AbcdEspComponent::dump_config() {
   LOG_SENSOR("  ", "Indoor Humidity", indoor_humidity_sensor_);
   LOG_SENSOR("  ", "HP Coil Temp", hp_coil_temp_sensor_);
   LOG_SENSOR("  ", "HP Stage", hp_stage_sensor_);
+  LOG_BINARY_SENSOR("  ", "Comms OK", comms_ok_sensor_);
 }
 
 }  // namespace abcdesp

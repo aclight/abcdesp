@@ -95,6 +95,11 @@ binary_sensor:
     id: blower_running
     device_class: running
 
+  - platform: template
+    name: "Communication OK"
+    id: comms_ok
+    device_class: connectivity
+
 switch:
   - platform: template
     name: "Allow Control"
@@ -118,3 +123,4 @@ abcdesp:
   indoor_humidity_sensor: indoor_humidity
   hp_coil_temp_sensor: hp_coil_temp
   hp_stage_sensor: hp_stage
+  comms_ok_sensor: comms_ok
