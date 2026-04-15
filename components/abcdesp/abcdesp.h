@@ -158,6 +158,12 @@ class AbcdEspComponent : public Component,
   uint32_t last_successful_response_ms_{0};
   bool comms_ok_{false};
 
+  // Bus device detection
+  bool seen_thermostat_{false};
+  bool seen_air_handler_{false};
+  bool seen_heat_pump_{false};
+  bool bus_detection_logged_{false};
+
   // Pending write
   bool write_pending_{false};
   uint8_t write_buf_[160];

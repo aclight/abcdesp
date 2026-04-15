@@ -115,3 +115,15 @@ esphome run abcdesp.yaml
 A SAM (System Access Module) is a Carrier accessory that provides remote/internet access to the HVAC system. This component pretends to be one. If you have a physical SAM installed, you must disconnect it before using this component — two devices at the same bus address will corrupt communications.
 
 Most residential systems with a standard thermostat, furnace, and heat pump do **not** have a SAM installed.
+
+## Multiple ESP32 Units
+
+If you have multiple Carrier Infinity systems (e.g. separate upstairs/downstairs units), each needs its own ESP32 + MAX485 wired to its own ABCD bus. Give each a unique `name:` in its YAML config:
+
+```yaml
+esphome:
+  name: abcdesp-upstairs    # unique per device
+  friendly_name: HVAC Upstairs
+```
+
+Each device will appear as a separate ESPHome integration in Home Assistant with its own set of entities. The `name` field determines the device's mDNS hostname and HA entity ID prefix.
