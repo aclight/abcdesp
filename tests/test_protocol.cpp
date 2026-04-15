@@ -15,7 +15,7 @@
 // ---------------------------------------------------------------------------
 // Minimal shims so protocol code compiles without ESPHome
 // ---------------------------------------------------------------------------
-#define NAN __builtin_nan("")
+// NAN is already defined by <cmath>
 
 // Protocol constants (copied from header to avoid ESPHome includes)
 static const uint8_t FRAME_HEADER_LEN = 8;
