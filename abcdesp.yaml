@@ -1,9 +1,12 @@
 esphome:
   name: abcdesp
   friendly_name: ABCDESP HVAC
-  includes:
-    - abcdesp.h
-    - abcdesp.cpp
+
+external_components:
+  - source:
+      type: local
+      path: components
+    components: [abcdesp]
 
 esp32:
   board: esp32dev
@@ -40,12 +43,6 @@ uart:
   parity: NONE
 
 sensor:
-  - platform: custom
-    lambda: |-
-      // Sensors are registered via the custom component below
-      return {};
-    sensors: []
-
   - platform: template
     name: "Outdoor Temperature"
     id: outdoor_temp
@@ -75,21 +72,13 @@ binary_sensor:
     id: blower_running
     device_class: running
 
-climate:
-  - platform: custom
-    lambda: |-
-      auto hvac = new esphome::abcdesp::AbcdEspComponent();
-      hvac->set_uart_parent(id(abcdesp_uart));
-      auto flow_pin = new GPIOPin();
-      flow_pin->set_pin(GPIO_NUM_4);
-      flow_pin->set_inverted(false);
-      flow_pin->set_flags(gpio::FLAG_OUTPUT);
-      hvac->set_flow_pin(flow_pin);
-      hvac->set_outdoor_temp_sensor(id(outdoor_temp));
-      hvac->set_airflow_cfm_sensor(id(airflow_cfm));
-      hvac->set_blower_sensor(id(blower_running));
-      hvac->set_heat_stage_sensor(id(heat_stage));
-      App.register_component(hvac);
-      return {hvac};
-    climates:
-      - name: "HVAC"
+abcdesp:
+  name: "HVAC"
+  uart_id: abcdesp_uart
+  flow_pin:
+    number: GPIO4
+    mode: OUTPUT
+  outdoor_temp_sensor: outdoor_temp
+  airflow_cfm_sensor: airflow_cfm
+  blower_sensor: blower_running
+  heat_stage_sensor: heat_stage
