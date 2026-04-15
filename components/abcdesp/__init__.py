@@ -4,6 +4,7 @@ from esphome.components import climate, sensor, binary_sensor, uart
 from esphome import pins
 
 DEPENDENCIES = ["uart"]
+AUTO_LOAD = ["climate"]
 
 abcdesp_ns = cg.esphome_ns.namespace("abcdesp")
 AbcdEspComponent = abcdesp_ns.class_(
