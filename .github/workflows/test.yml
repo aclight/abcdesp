@@ -46,8 +46,8 @@ jobs:
           cat > secrets.yaml <<'EOF'
           wifi_ssid: "ci-placeholder"
           wifi_password: "ci-placeholder"
-          fallback_password: "ci-placeholder"
-          api_key: "0000000000000000000000000000000000000000000="
+          wifi_fallback_password: "ci-placeholder"
+          encryption_key: "0000000000000000000000000000000000000000000="
           ota_password: "ci-placeholder"
           EOF
 
