@@ -29,11 +29,11 @@ _(All planned sensors have been implemented.)_
 
 ## Entity Improvements
 
-- **Heat stage labels** — map raw heat stage values (0–3) to meaningful labels (off/low/med/high) via a text sensor or HA template
+- ~~**Heat stage labels**~~ — done: `heat_stage_text_sensor` maps 0–3 to Off/Low/Med/High
 - ~~**Single vs. dual setpoint by mode**~~ — done: single slider in heat/cool, dual in auto
 - ~~**Fan-only mode**~~ — not supported by the Carrier Infinity protocol (no fan-only mode byte exists; modes are: heat, cool, auto, electric, heatpump_only, off)
-- **Away/vacation preset** — map Carrier vacation hold to HA climate presets
-- **Internalize Allow Control switch** — register the switch inside the component instead of requiring a separate `switch:` block in YAML
+- ~~**Away/vacation preset**~~ — done: CLIMATE_PRESET_HOME/AWAY mapped to 3B04 vacation register
+- ~~**Internalize Allow Control switch**~~ — done: AllowControlSwitch class registered inside the component
 
 ## Other
 
