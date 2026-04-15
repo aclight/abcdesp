@@ -92,6 +92,9 @@ class AbcdEspComponent : public Component,
   void set_blower_sensor(binary_sensor::BinarySensor *s) { blower_sensor_ = s; }
   void set_heat_stage_sensor(sensor::Sensor *s) { heat_stage_sensor_ = s; }
   void set_allow_control_switch(switch_::Switch *sw) { allow_control_switch_ = sw; }
+  void set_indoor_humidity_sensor(sensor::Sensor *s) { indoor_humidity_sensor_ = s; }
+  void set_hp_coil_temp_sensor(sensor::Sensor *s) { hp_coil_temp_sensor_ = s; }
+  void set_hp_stage_sensor(sensor::Sensor *s) { hp_stage_sensor_ = s; }
 
   // Component overrides
   void setup() override;
@@ -178,6 +181,9 @@ class AbcdEspComponent : public Component,
   sensor::Sensor *airflow_cfm_sensor_{nullptr};
   binary_sensor::BinarySensor *blower_sensor_{nullptr};
   sensor::Sensor *heat_stage_sensor_{nullptr};
+  sensor::Sensor *indoor_humidity_sensor_{nullptr};
+  sensor::Sensor *hp_coil_temp_sensor_{nullptr};
+  sensor::Sensor *hp_stage_sensor_{nullptr};
 
   // Control gate
   switch_::Switch *allow_control_switch_{nullptr};

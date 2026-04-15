@@ -17,6 +17,9 @@ CONF_AIRFLOW_CFM_SENSOR = "airflow_cfm_sensor"
 CONF_BLOWER_SENSOR = "blower_sensor"
 CONF_HEAT_STAGE_SENSOR = "heat_stage_sensor"
 CONF_ALLOW_CONTROL_SWITCH = "allow_control_switch"
+CONF_INDOOR_HUMIDITY_SENSOR = "indoor_humidity_sensor"
+CONF_HP_COIL_TEMP_SENSOR = "hp_coil_temp_sensor"
+CONF_HP_STAGE_SENSOR = "hp_stage_sensor"
 
 CONFIG_SCHEMA = (
     climate.climate_schema(AbcdEspComponent)
@@ -28,6 +31,9 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_BLOWER_SENSOR): cv.use_id(binary_sensor.BinarySensor),
             cv.Optional(CONF_HEAT_STAGE_SENSOR): cv.use_id(sensor.Sensor),
             cv.Optional(CONF_ALLOW_CONTROL_SWITCH): cv.use_id(switch.Switch),
+            cv.Optional(CONF_INDOOR_HUMIDITY_SENSOR): cv.use_id(sensor.Sensor),
+            cv.Optional(CONF_HP_COIL_TEMP_SENSOR): cv.use_id(sensor.Sensor),
+            cv.Optional(CONF_HP_STAGE_SENSOR): cv.use_id(sensor.Sensor),
         }
     )
     .extend(uart.UART_DEVICE_SCHEMA)
@@ -61,3 +67,15 @@ async def to_code(config):
     if CONF_ALLOW_CONTROL_SWITCH in config:
         sw = await cg.get_variable(config[CONF_ALLOW_CONTROL_SWITCH])
         cg.add(var.set_allow_control_switch(sw))
+
+    if CONF_INDOOR_HUMIDITY_SENSOR in config:
+        sens = await cg.get_variable(config[CONF_INDOOR_HUMIDITY_SENSOR])
+        cg.add(var.set_indoor_humidity_sensor(sens))
+
+    if CONF_HP_COIL_TEMP_SENSOR in config:
+        sens = await cg.get_variable(config[CONF_HP_COIL_TEMP_SENSOR])
+        cg.add(var.set_hp_coil_temp_sensor(sens))
+
+    if CONF_HP_STAGE_SENSOR in config:
+        sens = await cg.get_variable(config[CONF_HP_STAGE_SENSOR])
+        cg.add(var.set_hp_stage_sensor(sens))

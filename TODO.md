@@ -25,9 +25,6 @@ The physical thermostat behaves differently:
 
 ## Additional Sensors
 
-- **Indoor humidity** — already parsed from 3B02 but not published as a sensor entity
-- **Heat pump coil temperature** — already parsed from 3E01 but not published
-- **Heat pump stage** — already parsed from 3E02 but not published
 - **Communication health** — add a "Last Successful Poll" timestamp sensor and a "Communication OK" binary sensor that goes false if no successful response is received within a configurable timeout
 
 ## Entity Improvements

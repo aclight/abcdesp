@@ -49,9 +49,12 @@ impersonating a SAM (System Access Module).
 | HVAC | Climate | Mode (off/heat/cool/auto), fan (auto/low/med/high), heat+cool setpoints, current temperature |
 | Allow Control | Switch | Enables HVAC control from HA (default: OFF — see [Read-Only Mode](#read-only-mode)) |
 | Outdoor Temperature | Sensor | Outdoor air temp in °F (from heat pump 3E01 if available, otherwise from thermostat 3B02) |
+| Indoor Humidity | Sensor | Indoor relative humidity (%) from thermostat |
 | Airflow CFM | Sensor | Air handler airflow in CFM |
 | Blower Running | Binary Sensor | Whether the blower is running |
 | Heat Stage | Sensor | Current heat stage (0=off, 1=low, 2=med, 3=high) |
+| HP Coil Temperature | Sensor | Heat pump coil temperature in °F |
+| HP Stage | Sensor | Heat pump compressor stage |
 
 > **Note:** Only **Zone 1** is currently supported. Multi-zone systems will only see data for the first zone. See [TODO.md](TODO.md) for planned multi-zone support.
 
