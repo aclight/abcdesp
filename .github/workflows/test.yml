@@ -51,5 +51,11 @@ jobs:
           ota_password: "ci-placeholder"
           EOF
 
+      - name: Patch config for local compile
+        run: |
+          sed -i 's/type: git/type: local/' abcdesp.yaml
+          sed -i '/url: /d' abcdesp.yaml
+          sed -i 's/ref: .*/path: components/' abcdesp.yaml
+
       - name: Compile for ESP32
         run: esphome compile abcdesp.yaml

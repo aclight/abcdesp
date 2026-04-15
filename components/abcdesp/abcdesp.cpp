@@ -9,6 +9,12 @@ namespace abcdesp {
 static const char *const TAG = "abcdesp";
 
 // ==========================================================================
+// Temperature unit conversion helpers
+// ==========================================================================
+static float f_to_c(float f) { return (f - 32.0f) * 5.0f / 9.0f; }
+static float c_to_f(float c) { return c * 9.0f / 5.0f + 32.0f; }
+
+// ==========================================================================
 // CRC-16/ARC (poly 0x8005 reflected = 0xA001)
 // ==========================================================================
 uint16_t AbcdEspComponent::crc16(const uint8_t *data, uint16_t len) {
@@ -565,9 +571,9 @@ climate::ClimateTraits AbcdEspComponent::traits() {
   auto traits = climate::ClimateTraits();
   traits.add_feature_flags(climate::CLIMATE_SUPPORTS_CURRENT_TEMPERATURE |
                            climate::CLIMATE_REQUIRES_TWO_POINT_TARGET_TEMPERATURE);
-  traits.set_visual_min_temperature(40);
-  traits.set_visual_max_temperature(99);
-  traits.set_visual_temperature_step(1);
+  traits.set_visual_min_temperature(f_to_c(40));   // 40°F ≈ 4.4°C
+  traits.set_visual_max_temperature(f_to_c(99));   // 99°F ≈ 37.2°C
+  traits.set_visual_temperature_step(f_to_c(33));  // 1°F step ≈ 0.56°C
 
   traits.set_supported_modes({
       climate::CLIMATE_MODE_OFF,
@@ -656,12 +662,12 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
   }
 
   if (call.get_target_temperature_low().has_value()) {
-    new_heat = static_cast<uint8_t>(*call.get_target_temperature_low());
+    new_heat = static_cast<uint8_t>(c_to_f(*call.get_target_temperature_low()) + 0.5f);
     flags |= 0x0004;  // heat setpoint flag
   }
 
   if (call.get_target_temperature_high().has_value()) {
-    new_cool = static_cast<uint8_t>(*call.get_target_temperature_high());
+    new_cool = static_cast<uint8_t>(c_to_f(*call.get_target_temperature_high()) + 0.5f);
     flags |= 0x0008;  // cool setpoint flag
   }
 
@@ -726,14 +732,14 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
 // Publish climate entity state to HA
 // ==========================================================================
 void AbcdEspComponent::publish_climate_state() {
-  // Current temperature
+  // Current temperature (convert °F → °C for HA)
   if (!std::isnan(indoor_temp_)) {
-    this->current_temperature = indoor_temp_;
+    this->current_temperature = f_to_c(indoor_temp_);
   }
 
-  // Target temperatures
-  this->target_temperature_low = static_cast<float>(heat_setpoint_);
-  this->target_temperature_high = static_cast<float>(cool_setpoint_);
+  // Target temperatures (convert °F → °C for HA)
+  this->target_temperature_low = f_to_c(static_cast<float>(heat_setpoint_));
+  this->target_temperature_high = f_to_c(static_cast<float>(cool_setpoint_));
 
   // Mode
   switch (current_mode_) {
