@@ -738,6 +738,9 @@ void AbcdEspComponent::publish_climate_state() {
     this->current_temperature = f_to_c(indoor_temp_);
   }
 
+  // Current humidity
+  this->current_humidity = static_cast<float>(indoor_humidity_);
+
   // Target temperatures (convert °F → °C for HA)
   this->target_temperature_low = f_to_c(static_cast<float>(heat_setpoint_));
   this->target_temperature_high = f_to_c(static_cast<float>(cool_setpoint_));
@@ -776,23 +779,26 @@ void AbcdEspComponent::publish_climate_state() {
       break;
   }
 
-  // Action
+  // Action — use real stage data from air handler and heat pump
   if (current_mode_ == MODE_OFF) {
     this->action = climate::CLIMATE_ACTION_OFF;
-  } else if (blower_running_) {
-    if (heat_stage_ > 0) {
-      this->action = climate::CLIMATE_ACTION_HEATING;
-    } else if (current_mode_ == MODE_COOL ||
-             (current_mode_ == MODE_AUTO && !std::isnan(indoor_temp_) &&
-              indoor_temp_ > static_cast<float>(cool_setpoint_))) {
-      this->action = climate::CLIMATE_ACTION_COOLING;
-    } else if (current_mode_ == MODE_HEAT ||
-             (current_mode_ == MODE_AUTO && !std::isnan(indoor_temp_) &&
-              indoor_temp_ < static_cast<float>(heat_setpoint_))) {
+  } else if (heat_stage_ > 0) {
+    this->action = climate::CLIMATE_ACTION_HEATING;
+  } else if (hp_stage_ > 0 && current_mode_ == MODE_COOL) {
+    this->action = climate::CLIMATE_ACTION_COOLING;
+  } else if (hp_stage_ > 0 && current_mode_ == MODE_AUTO) {
+    // Heat pump active in auto mode — determine direction from coil temp
+    // If coil is hotter than outdoor, it's heating; otherwise cooling
+    if (!std::isnan(hp_coil_temp_) && !std::isnan(outdoor_temp_) &&
+        hp_coil_temp_ > outdoor_temp_ + 10.0f) {
       this->action = climate::CLIMATE_ACTION_HEATING;
     } else {
-      this->action = climate::CLIMATE_ACTION_FAN;
+      this->action = climate::CLIMATE_ACTION_COOLING;
     }
+  } else if (hp_stage_ > 0 && current_mode_ == MODE_HEAT) {
+    this->action = climate::CLIMATE_ACTION_HEATING;
+  } else if (blower_running_) {
+    this->action = climate::CLIMATE_ACTION_FAN;
   } else {
     this->action = climate::CLIMATE_ACTION_IDLE;
   }
@@ -804,32 +810,41 @@ void AbcdEspComponent::publish_climate_state() {
 // Publish sensor entities
 // ==========================================================================
 void AbcdEspComponent::publish_sensors() {
-  if (outdoor_temp_sensor_ != nullptr && !std::isnan(outdoor_temp_)) {
+  if (outdoor_temp_sensor_ != nullptr && !std::isnan(outdoor_temp_) &&
+      (std::isnan(prev_outdoor_temp_) || outdoor_temp_ != prev_outdoor_temp_)) {
     outdoor_temp_sensor_->publish_state(outdoor_temp_);
+    prev_outdoor_temp_ = outdoor_temp_;
   }
 
-  if (airflow_cfm_sensor_ != nullptr) {
+  if (airflow_cfm_sensor_ != nullptr && airflow_cfm_ != prev_airflow_cfm_) {
     airflow_cfm_sensor_->publish_state(static_cast<float>(airflow_cfm_));
+    prev_airflow_cfm_ = airflow_cfm_;
   }
 
-  if (blower_sensor_ != nullptr) {
+  if (blower_sensor_ != nullptr && blower_running_ != prev_blower_running_) {
     blower_sensor_->publish_state(blower_running_);
+    prev_blower_running_ = blower_running_;
   }
 
-  if (heat_stage_sensor_ != nullptr) {
+  if (heat_stage_sensor_ != nullptr && heat_stage_ != prev_heat_stage_) {
     heat_stage_sensor_->publish_state(static_cast<float>(heat_stage_));
+    prev_heat_stage_ = heat_stage_;
   }
 
-  if (indoor_humidity_sensor_ != nullptr) {
+  if (indoor_humidity_sensor_ != nullptr && indoor_humidity_ != prev_indoor_humidity_) {
     indoor_humidity_sensor_->publish_state(static_cast<float>(indoor_humidity_));
+    prev_indoor_humidity_ = indoor_humidity_;
   }
 
-  if (hp_coil_temp_sensor_ != nullptr && !std::isnan(hp_coil_temp_)) {
+  if (hp_coil_temp_sensor_ != nullptr && !std::isnan(hp_coil_temp_) &&
+      (std::isnan(prev_hp_coil_temp_) || hp_coil_temp_ != prev_hp_coil_temp_)) {
     hp_coil_temp_sensor_->publish_state(hp_coil_temp_);
+    prev_hp_coil_temp_ = hp_coil_temp_;
   }
 
-  if (hp_stage_sensor_ != nullptr) {
+  if (hp_stage_sensor_ != nullptr && hp_stage_ != prev_hp_stage_) {
     hp_stage_sensor_->publish_state(static_cast<float>(hp_stage_));
+    prev_hp_stage_ = hp_stage_;
   }
 }
 
@@ -852,6 +867,11 @@ void AbcdEspComponent::dump_config() {
   LOG_SENSOR("  ", "HP Coil Temp", hp_coil_temp_sensor_);
   LOG_SENSOR("  ", "HP Stage", hp_stage_sensor_);
   LOG_BINARY_SENSOR("  ", "Comms OK", comms_ok_sensor_);
+  if (allow_control_switch_ != nullptr) {
+    ESP_LOGCONFIG(TAG, "  Allow Control Switch: configured");
+  } else {
+    ESP_LOGCONFIG(TAG, "  Allow Control Switch: not configured (read-only)");
+  }
 }
 
 }  // namespace abcdesp

@@ -46,7 +46,7 @@ impersonating a SAM (System Access Module).
 
 | Entity | Type | Description |
 |--------|------|-------------|
-| HVAC | Climate | Mode (off/heat/cool/auto), fan (auto/low/med/high), heat+cool setpoints, current temperature |
+| HVAC | Climate | Mode (off/heat/cool/auto), fan (auto/low/med/high), heat+cool setpoints, current temperature and humidity |
 | Allow Control | Switch | Enables HVAC control from HA (default: OFF — see [Read-Only Mode](#read-only-mode)) |
 | Outdoor Temperature | Sensor | Outdoor air temp in °F (from heat pump 3E01 if available, otherwise from thermostat 3B02) |
 | Indoor Humidity | Sensor | Indoor relative humidity (%) from thermostat |
@@ -58,6 +58,8 @@ impersonating a SAM (System Access Module).
 | Communication OK | Binary Sensor | Whether the ESP32 is receiving responses from the thermostat (goes offline after 30s of no response) |
 
 > **Note:** Only **Zone 1** is currently supported. Multi-zone systems will only see data for the first zone. See [TODO.md](TODO.md) for planned multi-zone support.
+
+> **Temperature units:** All sensors report in °F internally. Home Assistant automatically converts values to match your configured unit system (°C or °F), so temperatures will display correctly regardless of your HA settings.
 
 ## How It Works
 
