@@ -251,6 +251,10 @@ void AbcdEspComponent::loop() {
 
     InfinityFrame frame;
     if (parse_frame(rx_buf_, frame_len, frame)) {
+      if (crc_fail_count_ > 0) {
+        ESP_LOGD(TAG, "CRC re-synced after %u failures", crc_fail_count_);
+        crc_fail_count_ = 0;
+      }
       handle_frame(frame);
       // Consume the frame
       rx_len_ -= frame_len;
@@ -259,6 +263,11 @@ void AbcdEspComponent::loop() {
       }
     } else {
       // CRC failed — skip one byte, try to re-sync
+      crc_fail_count_++;
+      if (crc_fail_count_ == CRC_FAIL_LOG_THRESHOLD) {
+        ESP_LOGE(TAG, "Repeated CRC failures (%u consecutive) — check RS-485 wiring",
+                 crc_fail_count_);
+      }
       memmove(rx_buf_, rx_buf_ + 1, --rx_len_);
     }
   }
@@ -274,7 +283,7 @@ void AbcdEspComponent::loop() {
   if (comms_ok_ && last_successful_response_ms_ > 0 &&
       (millis() - last_successful_response_ms_ > COMMS_TIMEOUT_MS)) {
     comms_ok_ = false;
-    ESP_LOGW(TAG, "Communication lost — no response in %d ms", COMMS_TIMEOUT_MS);
+    ESP_LOGE(TAG, "Communication lost — no response in %d ms", COMMS_TIMEOUT_MS);
     if (comms_ok_sensor_ != nullptr) {
       comms_ok_sensor_->publish_state(false);
     }
@@ -357,7 +366,7 @@ void AbcdEspComponent::handle_frame(const InfinityFrame &frame) {
 
   // --- NAK to our request ---
   if (frame.func == FUNC_NAK && frame.dst == ADDR_SAM) {
-    ESP_LOGW(TAG, "NAK received from 0x%04X for pending 0x%02X%02X — command rejected by thermostat",
+    ESP_LOGE(TAG, "NAK received from 0x%04X for pending 0x%02X%02X — command rejected by thermostat",
              frame.src, pending_table_, pending_row_);
     awaiting_response_ = false;
     return;
