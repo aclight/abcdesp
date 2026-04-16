@@ -95,6 +95,9 @@ views:
           - entity: binary_sensor.abcdesp_hold_active
             name: Hold Active
             icon: mdi:hand-back-right
+          - entity: sensor.abcdesp_hold_time_remaining
+            name: Hold Time Remaining
+            icon: mdi:timer-sand
           - entity: button.abcdesp_clear_hold
             name: Clear Hold
             icon: mdi:hand-back-right-off

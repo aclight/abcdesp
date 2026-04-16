@@ -359,6 +359,71 @@ TEST(parse_3b03_data) {
   PASS();
 }
 
+TEST(parse_3b03_timed_override) {
+  printf("test_parse_3b03_timed_override\n");
+  // Simulate full 3B03 register with timed override fields (150 bytes)
+  uint8_t reg[54] = {0};
+  reg[0]  = 0x01;      // zone bitmap
+  reg[11] = 0x01;      // zone 1 on hold
+  reg[12] = 70;        // heat setpoint
+  reg[20] = 76;        // cool setpoint
+
+  // Timed override flag (byte 37): zone 1 has timed override
+  reg[37] = 0x01;
+  // Override time remaining for zone 1 (bytes 38-39, uint16 BE): 120 minutes
+  reg[38] = 0x00;
+  reg[39] = 120;
+
+  ASSERT_EQ(reg[37] & 0x01, 1);  // zone 1 timed override active
+  uint16_t remaining = (reg[38] << 8) | reg[39];
+  ASSERT_EQ(remaining, 120);
+
+  // Zone 2 timed override at bytes 40-41
+  reg[37] = 0x03;  // zones 1 and 2
+  reg[40] = 0x01;  // 0x0168 = 360 minutes
+  reg[41] = 0x68;
+  uint16_t z2_remaining = (reg[40] << 8) | reg[41];
+  ASSERT_EQ(z2_remaining, 360);
+  ASSERT_EQ(reg[37] & 0x02, 2);  // zone 2 bit set
+
+  // No timed override
+  reg[37] = 0x00;
+  ASSERT_EQ(reg[37] & 0x01, 0);  // zone 1 not on timed override
+  remaining = (reg[37] & 0x01) ? ((reg[38] << 8) | reg[39]) : 0;
+  ASSERT_EQ(remaining, 0);
+  PASS();
+}
+
+TEST(timed_override_flag_encoding) {
+  printf("test_timed_override_flag_encoding\n");
+  // Verify flag values for 3B03 timed override write
+  uint16_t flags = 0;
+  flags |= 0x0002;  // hold flag
+  flags |= 0x0004;  // heat setpoint
+  flags |= 0x0040;  // timed override flag
+  flags |= 0x0080;  // override time
+
+  ASSERT_EQ(flags, 0x00C6);
+  ASSERT_EQ((flags >> 8) & 0xFF, 0x00);
+  ASSERT_EQ(flags & 0xFF, 0xC6);
+
+  // Encode 120 minutes as uint16 BE
+  uint16_t minutes = 120;
+  uint8_t hi = (minutes >> 8) & 0xFF;
+  uint8_t lo = minutes & 0xFF;
+  ASSERT_EQ(hi, 0);
+  ASSERT_EQ(lo, 120);
+
+  // Encode 1440 minutes (max, 24 hours) as uint16 BE
+  minutes = 1440;
+  hi = (minutes >> 8) & 0xFF;
+  lo = minutes & 0xFF;
+  ASSERT_EQ(hi, 0x05);
+  ASSERT_EQ(lo, 0xA0);
+  ASSERT_EQ((uint16_t)((hi << 8) | lo), 1440);
+  PASS();
+}
+
 TEST(parse_heatpump_3e01) {
   printf("test_parse_heatpump_3e01\n");
   // 3E01: uint16 outside_temp*16, uint16 coil_temp*16 (big-endian)

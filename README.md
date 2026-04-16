@@ -58,6 +58,7 @@ impersonating a SAM (System Access Module).
 | HP Stage Label | Text Sensor | Heat pump stage as text (Off/Low/High) |
 | Communication OK | Binary Sensor | Whether the ESP32 is receiving responses from the thermostat (goes offline after 30s of no response) |
 | Hold Active | Binary Sensor | Whether zone 1 is in hold mode (schedule overridden) |
+| Hold Time Remaining | Sensor | Minutes remaining on a timed hold (0 when not on timed override) |
 | Clear Hold | Button | Clears hold on zone 1, resuming the thermostat's built-in schedule (requires Allow Control ON) |
 
 > **Note:** Only **Zone 1** is currently supported. Multi-zone systems will only see data for the first zone. See [TODO.md](TODO.md) for planned multi-zone support.
@@ -90,7 +91,9 @@ abcdesp:
   hold_duration_minutes: 120  # auto-clear hold after 2 hours (0 = permanent, default)
 ```
 
-When a temporary hold expires, the component sends a clear-hold command and the thermostat resumes its built-in schedule. If the ESP32 reboots during a temporary hold, the hold will persist as permanent (the timer is not saved across reboots).
+When a temporary hold is set, the component writes the duration to the thermostat's native timed override fields (3B03 bytes 37-53) so the thermostat manages the countdown — this survives ESP32 reboots and the thermostat may display the remaining time. An ESP-side timer is also maintained as a fallback in case the thermostat doesn't support native timed override.
+
+The **Hold Time Remaining** sensor reports the minutes remaining on a timed hold (as reported by the thermostat). It reads 0 when there is no timed override active.
 
 To clear a hold manually at any time, press the **Clear Hold** button in Home Assistant (requires the Allow Control switch to be ON). You can also clear the hold at the thermostat itself.
 
