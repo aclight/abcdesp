@@ -76,5 +76,7 @@ abcdesp:
     name: "Communication OK"
   hold_active_sensor:
     name: "Hold Active"
+  hold_time_remaining_sensor:
+    name: "Hold Time Remaining"
   clear_hold_button:
     name: "Clear Hold"

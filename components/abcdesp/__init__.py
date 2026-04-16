@@ -38,6 +38,7 @@ CONF_HP_STAGE_SENSOR = "hp_stage_sensor"
 CONF_HP_STAGE_TEXT_SENSOR = "hp_stage_text_sensor"
 CONF_COMMS_OK_SENSOR = "comms_ok_sensor"
 CONF_HOLD_ACTIVE_SENSOR = "hold_active_sensor"
+CONF_HOLD_TIME_REMAINING_SENSOR = "hold_time_remaining_sensor"
 CONF_CLEAR_HOLD_BUTTON = "clear_hold_button"
 CONF_HOLD_DURATION_MINUTES = "hold_duration_minutes"
 
@@ -102,6 +103,12 @@ CONFIG_SCHEMA = (
             ),
             cv.Optional(CONF_HOLD_ACTIVE_SENSOR): binary_sensor.binary_sensor_schema(
                 icon="mdi:hand-back-left",
+            ),
+            cv.Optional(CONF_HOLD_TIME_REMAINING_SENSOR): sensor.sensor_schema(
+                unit_of_measurement="min",
+                accuracy_decimals=0,
+                icon="mdi:timer-sand",
+                state_class=STATE_CLASS_MEASUREMENT,
             ),
             cv.Optional(CONF_CLEAR_HOLD_BUTTON): button.button_schema(
                 ClearHoldButton,
@@ -173,6 +180,10 @@ async def to_code(config):
     if CONF_HOLD_ACTIVE_SENSOR in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_HOLD_ACTIVE_SENSOR])
         cg.add(var.set_hold_active_sensor(sens))
+
+    if CONF_HOLD_TIME_REMAINING_SENSOR in config:
+        sens = await sensor.new_sensor(config[CONF_HOLD_TIME_REMAINING_SENSOR])
+        cg.add(var.set_hold_time_remaining_sensor(sens))
 
     if CONF_CLEAR_HOLD_BUTTON in config:
         btn = await button.new_button(config[CONF_CLEAR_HOLD_BUTTON])

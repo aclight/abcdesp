@@ -133,6 +133,7 @@ class AbcdEspComponent : public Component,
   void set_hp_stage_text_sensor(text_sensor::TextSensor *s) { hp_stage_text_sensor_ = s; }
   void set_comms_ok_sensor(binary_sensor::BinarySensor *s) { comms_ok_sensor_ = s; }
   void set_hold_active_sensor(binary_sensor::BinarySensor *s) { hold_active_sensor_ = s; }
+  void set_hold_time_remaining_sensor(sensor::Sensor *s) { hold_time_remaining_sensor_ = s; }
   void set_clear_hold_button(ClearHoldButton *b) { clear_hold_button_ = b; }
   void set_hold_duration_minutes(uint16_t minutes) { hold_duration_minutes_ = minutes; }
 
@@ -267,6 +268,12 @@ class AbcdEspComponent : public Component,
   binary_sensor::BinarySensor *hold_active_sensor_{nullptr};
   bool prev_hold_active_{false};
   bool hold_active_initialized_{false};
+
+  // Timed override (native thermostat-managed hold)
+  uint8_t zone_override_flag_{0};         // byte 37: timed override bitmap
+  uint16_t zone1_override_minutes_{0};    // bytes 38-39: minutes remaining
+  uint16_t prev_override_minutes_{UINT16_MAX};
+  sensor::Sensor *hold_time_remaining_sensor_{nullptr};
 
   // Temporary hold
   uint16_t hold_duration_minutes_{0};  // 0 = permanent hold (default)

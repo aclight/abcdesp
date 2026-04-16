@@ -530,6 +530,11 @@ void AbcdEspComponent::parse_tstat_state(const uint8_t *data,
 //   [11]    = hold flag bitmap
 //   [12-19] = heat setpoints for zones 1-8 (uint8, °F)
 //   [20-27] = cool setpoints for zones 1-8 (uint8, °F)
+//   [28-35] = target humidity for zones 1-8 (uint8, %RH)
+//   [36]    = fan auto config
+//   [37]    = timed override flag bitmap (bit per zone)
+//   [38-53] = override time remaining (uint16 BE per zone, minutes)
+//   [54-149]= zone names (12 bytes each)
 // ==========================================================================
 void AbcdEspComponent::parse_tstat_zones(const uint8_t *data,
                                                   uint8_t len) {
@@ -543,8 +548,18 @@ void AbcdEspComponent::parse_tstat_zones(const uint8_t *data,
   heat_setpoint_ = data[12];  // Zone 1 heat setpoint
   cool_setpoint_ = data[20];  // Zone 1 cool setpoint
 
-  ESP_LOGD(TAG, "3B03: fan=%d  hold=0x%02X  heat=%d  cool=%d",
-           fan_mode_, zone_hold_, heat_setpoint_, cool_setpoint_);
+  // Parse timed override fields if present (bytes 37-53)
+  if (len >= 40) {
+    zone_override_flag_ = data[37];
+    zone1_override_minutes_ = (data[38] << 8) | data[39];
+  } else {
+    zone_override_flag_ = 0;
+    zone1_override_minutes_ = 0;
+  }
+
+  ESP_LOGD(TAG, "3B03: fan=%d  hold=0x%02X  heat=%d  cool=%d  override=0x%02X  mins=%d",
+           fan_mode_, zone_hold_, heat_setpoint_, cool_setpoint_,
+           zone_override_flag_, zone1_override_minutes_);
 
   // Publish hold status
   bool hold_active = (zone_hold_ & 0x01) != 0;
@@ -553,6 +568,14 @@ void AbcdEspComponent::parse_tstat_zones(const uint8_t *data,
     hold_active_sensor_->publish_state(hold_active);
     prev_hold_active_ = hold_active;
     hold_active_initialized_ = true;
+  }
+
+  // Publish hold time remaining (0 when not on timed override)
+  uint16_t remaining = (zone_override_flag_ & 0x01) ? zone1_override_minutes_ : 0;
+  if (hold_time_remaining_sensor_ != nullptr &&
+      remaining != prev_override_minutes_) {
+    hold_time_remaining_sensor_->publish_state(remaining);
+    prev_override_minutes_ = remaining;
   }
 
   publish_climate_state();
@@ -716,6 +739,7 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
   // We need at least 28 bytes (through cool setpoints)
   memset(write_buf_, 0, sizeof(write_buf_));
   write_buf_[0] = 0x01;  // zone bitmap: zone 1 only
+  write_len_ = 28;        // minimum payload through cool setpoints
 
   uint16_t flags = 0;
 
@@ -822,6 +846,26 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
     if (setpoints_changed) {
       write_buf_[11] = 0x01;
       flags |= 0x0002;
+
+      // Native timed hold: set override fields so the thermostat manages the
+      // countdown.  Fall back to the ESP timer if hold_duration_minutes_ is 0
+      // (permanent hold) or if the write payload is too short.
+      if (hold_duration_minutes_ > 0) {
+        // Timed override flag (byte 37): set zone 1 bit
+        write_buf_[37] = 0x01;
+        flags |= 0x0040;  // timed override flag field
+
+        // Override duration for zone 1 (bytes 38-39, uint16 BE, minutes)
+        write_buf_[38] = (hold_duration_minutes_ >> 8) & 0xFF;
+        write_buf_[39] = hold_duration_minutes_ & 0xFF;
+        flags |= 0x0080;  // override time field
+
+        write_len_ = 54;  // need bytes through offset 53 (8 zones x 2 bytes)
+
+        ESP_LOGI(TAG, "Setting native timed hold for %d minutes", hold_duration_minutes_);
+      }
+
+      // Always set ESP timer as fallback in case native override isn't honored
       hold_set_ms_ = millis();
     }
     write_buf_[1] = (flags >> 8) & 0xFF;
@@ -839,7 +883,6 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
       write_buf_[20 + i] = new_cool;
     }
 
-    write_len_ = 28;
     write_pending_ = true;
 
     ESP_LOGI(TAG, "Queued 3B03 write: fan=%d heat=%d cool=%d", new_fan,
@@ -1058,6 +1101,7 @@ void AbcdEspComponent::dump_config() {
   LOG_TEXT_SENSOR("  ", "HP Stage Label", hp_stage_text_sensor_);
   LOG_BINARY_SENSOR("  ", "Comms OK", comms_ok_sensor_);
   LOG_BINARY_SENSOR("  ", "Hold Active", hold_active_sensor_);
+  LOG_SENSOR("  ", "Hold Time Remaining", hold_time_remaining_sensor_);
   if (clear_hold_button_ != nullptr) {
     ESP_LOGCONFIG(TAG, "  Clear Hold Button: configured");
   }
@@ -1079,15 +1123,21 @@ void AbcdEspComponent::clear_hold() {
 
   memset(write_buf_, 0, sizeof(write_buf_));
   write_buf_[0] = 0x01;   // zone bitmap: zone 1
-  // flags = 0x0002 (hold flag only)
-  write_buf_[1] = 0x00;
-  write_buf_[2] = 0x02;
+  // flags: hold flag (0x0002) + timed override flag (0x0040) + override time (0x0080)
+  uint16_t flags = 0x0002 | 0x0040 | 0x0080;
+  write_buf_[1] = (flags >> 8) & 0xFF;
+  write_buf_[2] = flags & 0xFF;
   // hold bitmap (offset 11) = 0x00 — clear hold for zone 1
   write_buf_[11] = 0x00;
+  // timed override flag (offset 37) = 0x00 — clear timed override
+  write_buf_[37] = 0x00;
+  // override time (offsets 38-39) = 0 minutes
+  write_buf_[38] = 0x00;
+  write_buf_[39] = 0x00;
 
-  write_len_ = 28;
+  write_len_ = 54;  // include override fields
   write_pending_ = true;
-  hold_set_ms_ = 0;  // cancel any pending auto-clear
+  hold_set_ms_ = 0;  // cancel any pending ESP-managed auto-clear
 
   ESP_LOGI(TAG, "Queued clear hold for zone 1");
 }

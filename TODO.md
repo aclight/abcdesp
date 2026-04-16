@@ -21,7 +21,7 @@ When setpoints are changed from Home Assistant, the component places the thermos
 - ~~Temporary hold~~ — `hold_duration_minutes` YAML option auto-clears hold after configured time (PR #14)
 
 ### Remaining work
-- Consider supporting timed override via the 3B03 override fields (bytes 37-53) for native thermostat-managed temporary holds
+- ~~Consider supporting timed override via the 3B03 override fields (bytes 37-53) for native thermostat-managed temporary holds~~ — done: native timed hold writes override flag (byte 37, flag 0x0040) and duration (bytes 38-39, flag 0x0080) to 3B03; ESP timer kept as fallback; hold_time_remaining_sensor exposes countdown
 
 ## Additional Sensors
 
