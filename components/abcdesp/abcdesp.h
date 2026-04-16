@@ -71,6 +71,9 @@ static const uint16_t RX_BUF_SIZE             = 512;
 // Communication health — consider comms failed if no response in this many ms
 static const uint32_t COMMS_TIMEOUT_MS          = 30000;
 
+// CRC failure threshold — log ESP_LOGE after this many consecutive failures
+static const uint16_t CRC_FAIL_LOG_THRESHOLD    = 10;
+
 // CRC-16/ARC: poly 0x8005, reflected, init 0x0000
 static const uint16_t CRC_POLY          = 0xA001; // reflected 0x8005
 
@@ -194,6 +197,9 @@ class AbcdEspComponent : public Component,
   // Communication health
   uint32_t last_successful_response_ms_{0};
   bool comms_ok_{false};
+
+  // CRC failure tracking
+  uint16_t crc_fail_count_{0};
 
   // Bus device detection
   bool seen_thermostat_{false};

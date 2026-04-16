@@ -45,7 +45,7 @@ _(All planned sensors have been implemented.)_
 
 ## Logging
 
-- Promote important failure conditions (repeated CRC failures, NAK'd writes) from `ESP_LOGW` to `ESP_LOGE` so they surface in HA's log viewer
+- ~~Promote important failure conditions (repeated CRC failures, NAK'd writes) from `ESP_LOGW` to `ESP_LOGE` so they surface in HA's log viewer~~ — done: CRC failures tracked with counter, ESP_LOGE after 10 consecutive; NAK and comms-lost promoted to ESP_LOGE
 
 ## Other
 

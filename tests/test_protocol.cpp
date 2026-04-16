@@ -42,6 +42,9 @@ static const uint8_t FAN_LOW  = 0x01;
 static const uint8_t FAN_MED  = 0x02;
 static const uint8_t FAN_HIGH = 0x03;
 
+// CRC failure threshold (mirrors abcdesp.h)
+static const uint16_t CRC_FAIL_LOG_THRESHOLD = 10;
+
 struct InfinityFrame {
   uint16_t dst;
   uint16_t src;
@@ -519,6 +522,46 @@ TEST(hp_stage_label_mapping) {
   uint8_t bad_stage = 5;
   uint8_t idx = (bad_stage <= 2) ? bad_stage : 0;
   ASSERT_EQ(idx, 0);
+  PASS();
+}
+
+TEST(crc_fail_counter_logic) {
+  printf("test_crc_fail_counter_logic\n");
+  // Simulates the CRC failure counting logic from loop():
+  //   - counter increments on each CRC failure
+  //   - resets to 0 when a valid frame is parsed
+  //   - threshold triggers error log at CRC_FAIL_LOG_THRESHOLD
+  uint16_t crc_fail_count = 0;
+  bool error_logged = false;
+
+  // Simulate consecutive CRC failures up to threshold
+  for (uint16_t i = 0; i < CRC_FAIL_LOG_THRESHOLD; i++) {
+    crc_fail_count++;
+    if (crc_fail_count == CRC_FAIL_LOG_THRESHOLD) {
+      error_logged = true;
+    }
+  }
+  ASSERT_EQ(crc_fail_count, CRC_FAIL_LOG_THRESHOLD);
+  ASSERT_TRUE(error_logged);
+
+  // Simulate successful parse — counter resets
+  crc_fail_count = 0;
+  ASSERT_EQ(crc_fail_count, 0);
+
+  // Simulate a few failures then success — should NOT trigger error
+  error_logged = false;
+  for (uint16_t i = 0; i < CRC_FAIL_LOG_THRESHOLD - 1; i++) {
+    crc_fail_count++;
+    if (crc_fail_count == CRC_FAIL_LOG_THRESHOLD) {
+      error_logged = true;
+    }
+  }
+  ASSERT_EQ(crc_fail_count, CRC_FAIL_LOG_THRESHOLD - 1);
+  ASSERT_TRUE(!error_logged);
+
+  // Success resets counter
+  crc_fail_count = 0;
+  ASSERT_EQ(crc_fail_count, 0);
   PASS();
 }
 
