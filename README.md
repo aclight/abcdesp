@@ -143,3 +143,20 @@ esphome:
 ```
 
 Each device will appear as a separate ESPHome integration in Home Assistant with its own set of entities. The `name` field determines the device's mDNS hostname and HA entity ID prefix.
+
+## Dashboard
+
+A ready-to-use Home Assistant dashboard is included in `dashboard/hvac-dashboard.yaml`. It uses only built-in HA cards (no HACS or custom cards required) and shows:
+
+- **Thermostat card** — ring dial with current temperature, setpoints, mode, fan, and preset controls
+- **Conditions** — outdoor temperature, indoor humidity, and HP coil temperature at a glance
+- **System status** — blower, heat stage, HP stage, airflow CFM
+- **Controls** — hold status, clear hold, allow control, communication health
+
+To use it:
+
+1. In Home Assistant, go to **Settings → Dashboards → Add Dashboard**
+2. Create a new dashboard, open it, and switch to YAML mode (three-dot menu → Raw configuration editor)
+3. Paste the contents of `dashboard/hvac-dashboard.yaml`
+
+Entity IDs assume `esphome.name: abcdesp`. If you changed your device name, find/replace `abcdesp_` with your device name + underscore.

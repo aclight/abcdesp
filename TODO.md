@@ -40,8 +40,8 @@ _(All planned sensors have been implemented.)_
 
 ## Home Assistant Dashboard
 
-- Ship a custom thermostat card or dashboard that reproduces the data displayed on the physical thermostat (current temp, humidity, setpoints, mode, outdoor temp, system status)
-- Document which HA thermostat card works best and any quirks
+- ~~Ship a custom thermostat card or dashboard that reproduces the data displayed on the physical thermostat (current temp, humidity, setpoints, mode, outdoor temp, system status)~~ — done: `dashboard/hvac-dashboard.yaml` using built-in HA thermostat + glance + entities cards
+- ~~Document which HA thermostat card works best and any quirks~~ — done: uses built-in `type: thermostat` card with `show_current_as_primary: true`; documented in README
 
 ## Logging
 
