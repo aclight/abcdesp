@@ -3,6 +3,9 @@
 ESPHome component that bridges ABCD bus HVAC systems to Home Assistant via RS-485,
 impersonating a SAM (System Access Module).
 
+## ⚠ DO NOT USE THIS PROJECT
+At this point the code is completely untested on a real device. You should definitely not use it.
+
 ## ⚠ Safety Warnings
 
 - **NEVER connect to the C or D terminals** — they carry 24VAC and will destroy your ESP32 and RS-485 transceiver.
