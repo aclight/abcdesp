@@ -11,7 +11,7 @@ Currently only Zone 1 is read and controlled. The Carrier Infinity protocol supp
 
 ## Hold / Schedule Behavior
 
-When setpoints are changed from Home Assistant, the component places the thermostat into permanent **hold** mode, overriding the built-in schedule.
+~~When setpoints are changed from Home Assistant, the component places the thermostat into permanent **hold** mode, overriding the built-in schedule.~~ — hold duration is now configurable at runtime via the `hold_duration_number` entity (0 = permanent, 1–1440 = timed in minutes); active holds can be adjusted via `set_hold_time_number`.
 
 ### Done
 - ~~Clear hold from HA~~ — Clear Hold button entity sends 3B03 write clearing the hold flag
@@ -19,9 +19,11 @@ When setpoints are changed from Home Assistant, the component places the thermos
 - ~~Write feedback~~ — state updates are no longer optimistic; the next poll confirms the thermostat accepted changes
 - Mode and fan changes no longer set hold (only setpoint changes trigger hold)
 - ~~Temporary hold~~ — `hold_duration_minutes` YAML option auto-clears hold after configured time (PR #14)
+- ~~Consider supporting timed override via the 3B03 override fields (bytes 37-53) for native thermostat-managed temporary holds~~ — done: native timed hold writes override flag (byte 37, flag 0x0040) and duration (bytes 38-39, flag 0x0080) to 3B03; ESP timer kept as fallback; hold_time_remaining_sensor exposes countdown
+- ~~Runtime hold duration~~ — `hold_duration_number` and `set_hold_time_number` entities allow changing hold duration and adjusting active hold time from HA at runtime; `hold_duration_number` has `restore_value: true` for persistence across reboots; compile-time `hold_duration_minutes` YAML config remains as backward-compatible fallback
 
 ### Remaining work
-- ~~Consider supporting timed override via the 3B03 override fields (bytes 37-53) for native thermostat-managed temporary holds~~ — done: native timed hold writes override flag (byte 37, flag 0x0040) and duration (bytes 38-39, flag 0x0080) to 3B03; ESP timer kept as fallback; hold_time_remaining_sensor exposes countdown
+- **Configurable vacation parameters** — vacation preset currently uses hardcoded values (7 days, 55–85°F, fan auto). Consider exposing as YAML config or number entities. Low priority — matches thermostat's native behavior.
 
 ## Additional Sensors
 

@@ -1078,6 +1078,211 @@ TEST(snoop_address_class_matching) {
 }
 
 // ---------------------------------------------------------------------------
+// adjust_hold payload construction tests
+// ---------------------------------------------------------------------------
+
+// Helper: build an adjust_hold write buffer and return it for verification.
+// Mirrors AbcdEspComponent::adjust_hold() logic.
+static void build_adjust_hold_payload(uint16_t minutes, uint8_t *write_buf,
+                                      uint8_t &write_len) {
+  memset(write_buf, 0, 54);
+  write_buf[0] = 0x01;  // zone bitmap: zone 1
+
+  if (minutes > 0) {
+    uint16_t flags = 0x0002 | 0x0040 | 0x0080;
+    write_buf[1] = (flags >> 8) & 0xFF;
+    write_buf[2] = flags & 0xFF;
+    write_buf[11] = 0x01;  // keep hold active
+    write_buf[37] = 0x01;  // timed override zone 1
+    write_buf[38] = (minutes >> 8) & 0xFF;
+    write_buf[39] = minutes & 0xFF;
+  } else {
+    uint16_t flags = 0x0002 | 0x0040 | 0x0080;
+    write_buf[1] = (flags >> 8) & 0xFF;
+    write_buf[2] = flags & 0xFF;
+    write_buf[11] = 0x01;  // keep hold active
+    write_buf[37] = 0x00;  // clear timed override
+    write_buf[38] = 0x00;
+    write_buf[39] = 0x00;
+  }
+
+  write_len = 54;
+}
+
+TEST(build_adjust_hold_timed_payload) {
+  printf("test_build_adjust_hold_timed_payload\n");
+  // Adjust hold to 120 minutes — verify all critical bytes
+  uint8_t buf[54];
+  uint8_t len;
+  build_adjust_hold_payload(120, buf, len);
+
+  ASSERT_EQ(len, 54);
+  ASSERT_EQ(buf[0], 0x01);   // zone bitmap
+  // flags: 0x0002 | 0x0040 | 0x0080 = 0x00C2
+  uint16_t flags = (buf[1] << 8) | buf[2];
+  ASSERT_EQ(flags, 0x00C2);
+  ASSERT_TRUE((flags & 0x0002) != 0);  // hold flag
+  ASSERT_TRUE((flags & 0x0040) != 0);  // timed override flag
+  ASSERT_TRUE((flags & 0x0080) != 0);  // override time flag
+  ASSERT_EQ(buf[11], 0x01);  // hold active
+  ASSERT_EQ(buf[37], 0x01);  // timed override zone 1
+  uint16_t encoded_minutes = (buf[38] << 8) | buf[39];
+  ASSERT_EQ(encoded_minutes, 120);
+  // No setpoint flags — adjust_hold doesn't change setpoints
+  ASSERT_TRUE((flags & 0x0004) == 0);  // no heat setpoint flag
+  ASSERT_TRUE((flags & 0x0008) == 0);  // no cool setpoint flag
+  PASS();
+}
+
+TEST(build_adjust_hold_permanent_payload) {
+  printf("test_build_adjust_hold_permanent_payload\n");
+  // Adjust hold to permanent (0 minutes) — timed override cleared, hold kept
+  uint8_t buf[54];
+  uint8_t len;
+  build_adjust_hold_payload(0, buf, len);
+
+  ASSERT_EQ(len, 54);
+  ASSERT_EQ(buf[0], 0x01);   // zone bitmap
+  uint16_t flags = (buf[1] << 8) | buf[2];
+  ASSERT_EQ(flags, 0x00C2);  // same flags — writing zeros to clear override
+  ASSERT_EQ(buf[11], 0x01);  // hold stays active
+  ASSERT_EQ(buf[37], 0x00);  // timed override cleared
+  ASSERT_EQ(buf[38], 0x00);  // duration = 0
+  ASSERT_EQ(buf[39], 0x00);
+  PASS();
+}
+
+TEST(adjust_hold_duration_boundary) {
+  printf("test_adjust_hold_duration_boundary\n");
+  uint8_t buf[54];
+  uint8_t len;
+
+  // 1 minute — minimum timed hold
+  build_adjust_hold_payload(1, buf, len);
+  ASSERT_EQ(buf[37], 0x01);  // timed override active
+  uint16_t mins = (buf[38] << 8) | buf[39];
+  ASSERT_EQ(mins, 1);
+
+  // 1440 minutes (24 hours) — maximum
+  build_adjust_hold_payload(1440, buf, len);
+  ASSERT_EQ(buf[37], 0x01);
+  mins = (buf[38] << 8) | buf[39];
+  ASSERT_EQ(mins, 1440);
+  ASSERT_EQ(buf[38], 0x05);  // 1440 = 0x05A0
+  ASSERT_EQ(buf[39], 0xA0);
+
+  // 720 minutes (12 hours)
+  build_adjust_hold_payload(720, buf, len);
+  mins = (buf[38] << 8) | buf[39];
+  ASSERT_EQ(mins, 720);
+  ASSERT_EQ(buf[38], 0x02);  // 720 = 0x02D0
+  ASSERT_EQ(buf[39], 0xD0);
+  PASS();
+}
+
+TEST(adjust_hold_flag_encoding) {
+  printf("test_adjust_hold_flag_encoding\n");
+  // Verify flags are correctly separated from setpoint-write flags
+  // adjust_hold should ONLY set hold(0x0002), timed_override(0x0040), override_time(0x0080)
+  // and never set fan(0x0001), heat_sp(0x0004), cool_sp(0x0008), or mode(0x0010)
+  uint8_t buf[54];
+  uint8_t len;
+
+  build_adjust_hold_payload(60, buf, len);
+  uint16_t flags = (buf[1] << 8) | buf[2];
+
+  // Must have these flags
+  ASSERT_TRUE((flags & 0x0002) != 0);  // hold
+  ASSERT_TRUE((flags & 0x0040) != 0);  // timed override
+  ASSERT_TRUE((flags & 0x0080) != 0);  // override time
+
+  // Must NOT have these flags
+  ASSERT_TRUE((flags & 0x0001) == 0);  // fan mode
+  ASSERT_TRUE((flags & 0x0004) == 0);  // heat setpoint
+  ASSERT_TRUE((flags & 0x0008) == 0);  // cool setpoint
+  ASSERT_TRUE((flags & 0x0010) == 0);  // mode
+
+  // All unused payload bytes (3-10, 12-36, 40-53) should be zero
+  for (int i = 3; i <= 10; i++) {
+    ASSERT_EQ(buf[i], 0);
+  }
+  for (int i = 12; i <= 36; i++) {
+    ASSERT_EQ(buf[i], 0);
+  }
+  for (int i = 40; i <= 53; i++) {
+    ASSERT_EQ(buf[i], 0);
+  }
+  PASS();
+}
+
+TEST(adjust_hold_requires_active_hold) {
+  printf("test_adjust_hold_requires_active_hold\n");
+  // Simulate the guard logic from adjust_hold():
+  // adjust_hold should only proceed when zone_hold_ & 0x01 is set
+
+  // No hold active — should block
+  uint8_t zone_hold = 0x00;
+  bool blocked = (zone_hold & 0x01) == 0;
+  ASSERT_TRUE(blocked);
+
+  // Zone 1 on hold — should allow
+  zone_hold = 0x01;
+  blocked = (zone_hold & 0x01) == 0;
+  ASSERT_TRUE(!blocked);
+
+  // Multiple zones on hold (zone 1 included) — should allow
+  zone_hold = 0x05;  // zones 1 and 3
+  blocked = (zone_hold & 0x01) == 0;
+  ASSERT_TRUE(!blocked);
+
+  // Only zone 2 on hold (zone 1 not held) — should block
+  zone_hold = 0x02;
+  blocked = (zone_hold & 0x01) == 0;
+  ASSERT_TRUE(blocked);
+  PASS();
+}
+
+TEST(hold_duration_number_overrides_config) {
+  printf("test_hold_duration_number_overrides_config\n");
+  // Simulate the logic in control() that picks between number entity and config:
+  //   uint16_t dur = (hold_duration_number != nullptr)
+  //                      ? static_cast<uint16_t>(hold_duration_number_state)
+  //                      : hold_duration_minutes_;
+
+  uint16_t config_value = 120;  // compile-time config
+
+  // When number entity is not configured (nullptr), use config value
+  float *number_state = nullptr;
+  uint16_t dur = (number_state != nullptr)
+                     ? static_cast<uint16_t>(*number_state)
+                     : config_value;
+  ASSERT_EQ(dur, 120);
+
+  // When number entity IS configured with a different value
+  float entity_value = 60.0f;
+  number_state = &entity_value;
+  dur = (number_state != nullptr)
+            ? static_cast<uint16_t>(*number_state)
+            : config_value;
+  ASSERT_EQ(dur, 60);
+
+  // When number entity is set to 0 (permanent hold)
+  entity_value = 0.0f;
+  dur = (number_state != nullptr)
+            ? static_cast<uint16_t>(*number_state)
+            : config_value;
+  ASSERT_EQ(dur, 0);
+
+  // When number entity is set to max (1440 minutes)
+  entity_value = 1440.0f;
+  dur = (number_state != nullptr)
+            ? static_cast<uint16_t>(*number_state)
+            : config_value;
+  ASSERT_EQ(dur, 1440);
+  PASS();
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 int main() {

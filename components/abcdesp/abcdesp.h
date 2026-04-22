@@ -7,6 +7,7 @@
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/switch/switch.h"
 #include "esphome/components/button/button.h"
+#include "esphome/components/number/number.h"
 #include "esphome/components/uart/uart.h"
 
 namespace esphome {
@@ -114,6 +115,30 @@ class AllowControlSwitch : public switch_::Switch {
 };
 
 // ---------------------------------------------------------------------------
+// Hold Duration Number — default hold duration for future setpoint changes
+// ---------------------------------------------------------------------------
+class HoldDurationNumber : public number::Number {
+ public:
+  void set_parent(AbcdEspComponent *parent) { parent_ = parent; }
+
+ protected:
+  void control(float value) override;
+  AbcdEspComponent *parent_{nullptr};
+};
+
+// ---------------------------------------------------------------------------
+// Set Hold Time Number — adjust remaining time on an active hold
+// ---------------------------------------------------------------------------
+class SetHoldTimeNumber : public number::Number {
+ public:
+  void set_parent(AbcdEspComponent *parent) { parent_ = parent; }
+
+ protected:
+  void control(float value) override;
+  AbcdEspComponent *parent_{nullptr};
+};
+
+// ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
 class AbcdEspComponent : public Component,
@@ -136,9 +161,14 @@ class AbcdEspComponent : public Component,
   void set_hold_time_remaining_sensor(sensor::Sensor *s) { hold_time_remaining_sensor_ = s; }
   void set_clear_hold_button(ClearHoldButton *b) { clear_hold_button_ = b; }
   void set_hold_duration_minutes(uint16_t minutes) { hold_duration_minutes_ = minutes; }
+  void set_hold_duration_number(HoldDurationNumber *n) { hold_duration_number_ = n; }
+  void set_set_hold_time_number(SetHoldTimeNumber *n) { set_hold_time_number_ = n; }
 
   // Clear hold — sends a 3B03 write clearing the hold flag
   void clear_hold();
+
+  // Adjust hold — change remaining time on an active hold
+  void adjust_hold(uint16_t minutes);
 
   // Component overrides
   void setup() override;
@@ -282,6 +312,10 @@ class AbcdEspComponent : public Component,
 
   // Clear hold button
   ClearHoldButton *clear_hold_button_{nullptr};
+
+  // Runtime hold duration number entities
+  HoldDurationNumber *hold_duration_number_{nullptr};
+  SetHoldTimeNumber *set_hold_time_number_{nullptr};
 
   // Publish helpers
   void publish_climate_state();
