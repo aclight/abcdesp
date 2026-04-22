@@ -18,6 +18,38 @@ void ClearHoldButton::press_action() {
 }
 
 // ==========================================================================
+// HoldDurationNumber — update default hold duration at runtime
+// ==========================================================================
+void HoldDurationNumber::control(float value) {
+  publish_state(value);
+  float v = value;
+  this->pref_.save(&v);
+  if (parent_ != nullptr) {
+    parent_->set_hold_duration_minutes(static_cast<uint16_t>(value));
+  }
+}
+
+void HoldDurationNumber::setup_restore() {
+  this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+  float restored;
+  if (this->pref_.load(&restored)) {
+    this->publish_state(restored);
+    if (parent_ != nullptr) {
+      parent_->set_hold_duration_minutes(static_cast<uint16_t>(restored));
+    }
+  }
+}
+
+// ==========================================================================
+// SetHoldTimeNumber — adjust remaining time on an active hold
+// ==========================================================================
+void SetHoldTimeNumber::control(float value) {
+  if (parent_ != nullptr) {
+    parent_->adjust_hold(static_cast<uint16_t>(value));
+  }
+}
+
+// ==========================================================================
 // Temperature unit conversion helpers
 // ==========================================================================
 static float f_to_c(float f) { return (f - 32.0f) * 5.0f / 9.0f; }
@@ -231,6 +263,13 @@ void AbcdEspComponent::setup() {
   if (allow_control_switch_ != nullptr) {
     allow_control_switch_->publish_state(false);
   }
+  // Restore hold duration number from flash, or initialize from compile-time config
+  if (hold_duration_number_ != nullptr) {
+    hold_duration_number_->setup_restore();
+    if (std::isnan(hold_duration_number_->state)) {
+      hold_duration_number_->publish_state(static_cast<float>(hold_duration_minutes_));
+    }
+  }
   rx_len_ = 0;
   last_poll_ms_ = millis();
   poll_step_ = 0;
@@ -330,12 +369,16 @@ void AbcdEspComponent::loop() {
   }
 
   // --- Auto-clear temporary hold ---
-  if (hold_duration_minutes_ > 0 && hold_set_ms_ > 0 &&
-      (now - hold_set_ms_ >= static_cast<uint32_t>(hold_duration_minutes_) * 60000U)) {
-    ESP_LOGI(TAG, "Temporary hold expired after %d minutes — clearing",
-             hold_duration_minutes_);
-    hold_set_ms_ = 0;
-    clear_hold();
+  {
+    uint16_t dur = (hold_duration_number_ != nullptr)
+                       ? static_cast<uint16_t>(hold_duration_number_->state)
+                       : hold_duration_minutes_;
+    if (dur > 0 && hold_set_ms_ > 0 &&
+        (now - hold_set_ms_ >= static_cast<uint32_t>(dur) * 60000U)) {
+      ESP_LOGI(TAG, "Temporary hold expired after %d minutes — clearing", dur);
+      hold_set_ms_ = 0;
+      clear_hold();
+    }
   }
 
   // --- Send pending write if gap is satisfied ---
@@ -876,22 +919,27 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
       write_buf_[11] = 0x01;
       flags |= 0x0002;
 
+      // Determine effective hold duration: number entity overrides compile-time config
+      uint16_t dur = (hold_duration_number_ != nullptr)
+                         ? static_cast<uint16_t>(hold_duration_number_->state)
+                         : hold_duration_minutes_;
+
       // Native timed hold: set override fields so the thermostat manages the
-      // countdown.  Fall back to the ESP timer if hold_duration_minutes_ is 0
-      // (permanent hold) or if the write payload is too short.
-      if (hold_duration_minutes_ > 0) {
+      // countdown.  Fall back to the ESP timer if dur is 0 (permanent hold)
+      // or if the write payload is too short.
+      if (dur > 0) {
         // Timed override flag (byte 37): set zone 1 bit
         write_buf_[37] = 0x01;
         flags |= 0x0040;  // timed override flag field
 
         // Override duration for zone 1 (bytes 38-39, uint16 BE, minutes)
-        write_buf_[38] = (hold_duration_minutes_ >> 8) & 0xFF;
-        write_buf_[39] = hold_duration_minutes_ & 0xFF;
+        write_buf_[38] = (dur >> 8) & 0xFF;
+        write_buf_[39] = dur & 0xFF;
         flags |= 0x0080;  // override time field
 
         write_len_ = 54;  // need bytes through offset 53 (8 zones x 2 bytes)
 
-        ESP_LOGI(TAG, "Setting native timed hold for %d minutes", hold_duration_minutes_);
+        ESP_LOGI(TAG, "Setting native timed hold for %d minutes", dur);
       }
 
       // Always set ESP timer as fallback in case native override isn't honored
@@ -1139,6 +1187,59 @@ void AbcdEspComponent::dump_config() {
   } else {
     ESP_LOGCONFIG(TAG, "  Allow Control Switch: not configured (read-only)");
   }
+  if (hold_duration_number_ != nullptr) {
+    ESP_LOGCONFIG(TAG, "  Hold Duration Number: configured");
+  }
+  if (set_hold_time_number_ != nullptr) {
+    ESP_LOGCONFIG(TAG, "  Set Hold Time Number: configured");
+  }
+}
+
+// ==========================================================================
+// Adjust hold — change remaining time on an active hold (or make permanent)
+// ==========================================================================
+void AbcdEspComponent::adjust_hold(uint16_t minutes) {
+  if (allow_control_switch_ == nullptr || !allow_control_switch_->state) {
+    ESP_LOGW(TAG, "Adjust hold blocked: Allow Control switch is OFF");
+    return;
+  }
+
+  if ((zone_hold_ & 0x01) == 0) {
+    ESP_LOGW(TAG, "Adjust hold blocked: no active hold on zone 1");
+    return;
+  }
+
+  memset(write_buf_, 0, sizeof(write_buf_));
+  write_buf_[0] = 0x01;  // zone bitmap: zone 1
+
+  if (minutes > 0) {
+    // Timed hold: set hold + timed override + duration
+    uint16_t flags = 0x0002 | 0x0040 | 0x0080;
+    write_buf_[1] = (flags >> 8) & 0xFF;
+    write_buf_[2] = flags & 0xFF;
+    write_buf_[11] = 0x01;  // keep hold active
+    write_buf_[37] = 0x01;  // timed override zone 1
+    write_buf_[38] = (minutes >> 8) & 0xFF;
+    write_buf_[39] = minutes & 0xFF;
+
+    hold_set_ms_ = millis();  // start ESP fallback timer
+    ESP_LOGI(TAG, "Adjusting hold to %d minutes", minutes);
+  } else {
+    // Permanent hold: clear timed override but keep hold
+    uint16_t flags = 0x0002 | 0x0040 | 0x0080;
+    write_buf_[1] = (flags >> 8) & 0xFF;
+    write_buf_[2] = flags & 0xFF;
+    write_buf_[11] = 0x01;  // keep hold active
+    write_buf_[37] = 0x00;  // clear timed override
+    write_buf_[38] = 0x00;
+    write_buf_[39] = 0x00;
+
+    hold_set_ms_ = 0;  // cancel ESP fallback timer
+    ESP_LOGI(TAG, "Adjusting hold to permanent");
+  }
+
+  write_len_ = 54;
+  write_pending_ = true;
 }
 
 // ==========================================================================

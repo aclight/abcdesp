@@ -88,6 +88,10 @@ abcdesp:
     name: "Hold Time Remaining"
   clear_hold_button:
     name: "Clear Hold"
+  hold_duration_number:
+    name: "Hold Duration"
+  set_hold_time_number:
+    name: "Set Hold Time"
 
 # ----------------------------------------------------------------
 # Diagnostics

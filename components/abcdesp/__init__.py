@@ -1,6 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import climate, sensor, text_sensor, binary_sensor, switch, button, uart
+from esphome.components import climate, sensor, text_sensor, binary_sensor, switch, button, number, uart
 from esphome.const import (
     DEVICE_CLASS_HUMIDITY,
     DEVICE_CLASS_RUNNING,
@@ -16,7 +16,7 @@ from esphome.const import (
 from esphome import pins
 
 DEPENDENCIES = ["uart"]
-AUTO_LOAD = ["climate", "sensor", "text_sensor", "binary_sensor", "switch", "button"]
+AUTO_LOAD = ["climate", "sensor", "text_sensor", "binary_sensor", "switch", "button", "number"]
 
 abcdesp_ns = cg.esphome_ns.namespace("abcdesp")
 AbcdEspComponent = abcdesp_ns.class_(
@@ -24,6 +24,8 @@ AbcdEspComponent = abcdesp_ns.class_(
 )
 ClearHoldButton = abcdesp_ns.class_("ClearHoldButton", button.Button)
 AllowControlSwitch = abcdesp_ns.class_("AllowControlSwitch", switch.Switch)
+HoldDurationNumber = abcdesp_ns.class_("HoldDurationNumber", number.Number)
+SetHoldTimeNumber = abcdesp_ns.class_("SetHoldTimeNumber", number.Number)
 
 CONF_FLOW_PIN = "flow_pin"
 CONF_OUTDOOR_TEMP_SENSOR = "outdoor_temp_sensor"
@@ -41,6 +43,8 @@ CONF_HOLD_ACTIVE_SENSOR = "hold_active_sensor"
 CONF_HOLD_TIME_REMAINING_SENSOR = "hold_time_remaining_sensor"
 CONF_CLEAR_HOLD_BUTTON = "clear_hold_button"
 CONF_HOLD_DURATION_MINUTES = "hold_duration_minutes"
+CONF_HOLD_DURATION_NUMBER = "hold_duration_number"
+CONF_SET_HOLD_TIME_NUMBER = "set_hold_time_number"
 
 CONFIG_SCHEMA = (
     climate.climate_schema(AbcdEspComponent)
@@ -123,6 +127,16 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_HOLD_DURATION_MINUTES, default=0): cv.int_range(
                 min=0, max=1440
             ),
+            cv.Optional(CONF_HOLD_DURATION_NUMBER): number.number_schema(
+                HoldDurationNumber,
+                icon="mdi:timer-cog",
+                entity_category=ENTITY_CATEGORY_CONFIG,
+            ),
+            cv.Optional(CONF_SET_HOLD_TIME_NUMBER): number.number_schema(
+                SetHoldTimeNumber,
+                icon="mdi:timer-edit",
+                entity_category=ENTITY_CATEGORY_CONFIG,
+            ),
         }
     )
     .extend(uart.UART_DEVICE_SCHEMA)
@@ -193,5 +207,25 @@ async def to_code(config):
     if CONF_ALLOW_CONTROL_SWITCH in config:
         sw = await switch.new_switch(config[CONF_ALLOW_CONTROL_SWITCH])
         cg.add(var.set_allow_control_switch(sw))
+
+    if CONF_HOLD_DURATION_NUMBER in config:
+        num = await number.new_number(
+            config[CONF_HOLD_DURATION_NUMBER],
+            min_value=0,
+            max_value=1440,
+            step=1,
+        )
+        cg.add(num.set_parent(var))
+        cg.add(var.set_hold_duration_number(num))
+
+    if CONF_SET_HOLD_TIME_NUMBER in config:
+        num = await number.new_number(
+            config[CONF_SET_HOLD_TIME_NUMBER],
+            min_value=0,
+            max_value=1440,
+            step=1,
+        )
+        cg.add(num.set_parent(var))
+        cg.add(var.set_set_hold_time_number(num))
 
     cg.add(var.set_hold_duration_minutes(config[CONF_HOLD_DURATION_MINUTES]))
