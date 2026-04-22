@@ -15,35 +15,41 @@ At this point the code is completely untested on a real device. You should defin
 
 ## Parts List
 
-| Part | Notes |
-|------|-------|
-| ESP32 dev board | Any ESP32-WROOM-32 based board (e.g. ESP32-DevKitC) |
-| MAX485 module | RS-485 transceiver breakout (TTL level) |
-| Thermostat wire | 2-conductor, to reach your ABCD terminals |
-| 5V USB power supply | To power the ESP32 |
+| Part | Mouser # | Notes |
+|------|----------|-------|
+| M5Stack AtomS3 | 170-C124 | ESP32-S3 controller (plugs into the RS485 base) |
+| M5Stack ATOMIC RS485 Base | 170-A131 | RS485 transceiver with built-in DC-DC (powers the AtomS3) |
+| Thermostat wire | — | 2-conductor, to reach your ABCD terminals |
 
 ## Wiring
 
-```
-                     ┌──────────────┐
-                     │   MAX485     │
-  ABCD Bus ──A ────▶│ A            │
-  ABCD Bus ──B ────▶│ B            │
-                     │              │
-         ESP32       │              │
-  GPIO16 (RX) ◀─────│ RO           │
-  GPIO17 (TX) ──────▶│ DI           │
-  GPIO4  (DIR) ─────▶│ DE ┬ RE      │
-                     │    └─(tied)  │
-  3.3V ─────────────▶│ VCC          │
-  GND ──────────────▶│ GND          │
-                     └──────────────┘
+The AtomS3 plugs directly into the ATOMIC RS485 Base — no jumper wires needed between the two modules. The RS485 Base maps the bus signals to the AtomS3 automatically:
 
-  DE and RE pins on the MAX485 are bridged together and driven by GPIO4.
-  HIGH = transmit mode, LOW = receive mode.
-```
+| Signal | AtomS3 GPIO | Notes |
+|--------|-------------|-------|
+| RS485 RX | GPIO5 (pin 3 on base) | Receive data from bus |
+| RS485 TX | GPIO6 (pin 5 on base) | Transmit data to bus |
+| Direction | — | Auto-direction (hardware on RS485 Base, no GPIO needed) |
 
-**Do NOT connect C or D from the ABCD bus. They are 24VAC power.**
+### Screw Terminal (VH-3.96 4P on RS485 Base)
+
+Connect your ABCD bus wires and power to the 4-pin screw terminal on the RS485 Base. Refer to the I/O sticker included with the base for the exact pin order:
+
+| Terminal | Connect to | Notes |
+|----------|-----------|-------|
+| **A** | ABCD Bus terminal **A** | RS-485 Data+ |
+| **B** | ABCD Bus terminal **B** | RS-485 Data− |
+| **GND** | Power supply ground | Common ground |
+| **VIN** | DC power supply **+** | 4.5–36V DC input (powers the AtomS3 via built-in DC-DC) |
+
+### Power
+
+You have two options for powering the device:
+
+1. **Screw terminal VIN** (recommended for installation): Supply 4.5–36V DC to the VIN terminal. 12V DC works well. The RS485 Base's built-in DC-DC (AOZ1282CI) steps it down to 5V for the AtomS3.
+2. **USB-C** (for bench testing): Plug USB-C directly into the AtomS3. Do **not** supply VIN and USB-C power simultaneously.
+
+> **Do NOT connect to the C or D terminals on the ABCD bus. They carry 24VAC and will destroy the device.**
 
 ## What It Exposes
 
@@ -140,7 +146,7 @@ Most residential systems with a standard thermostat, furnace, and heat pump do *
 
 ## Multiple ESP32 Units
 
-If you have multiple Carrier Infinity systems (e.g. separate upstairs/downstairs units), each needs its own ESP32 + MAX485 wired to its own ABCD bus. Give each a unique `name:` in its YAML config:
+If you have multiple Carrier Infinity systems (e.g. separate upstairs/downstairs units), each needs its own AtomS3 + RS485 Base wired to its own ABCD bus. Give each a unique `name:` in its YAML config:
 
 ```yaml
 esphome:

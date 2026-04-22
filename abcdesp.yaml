@@ -11,7 +11,7 @@ external_components:
     components: [abcdesp]
 
 esp32:
-  board: esp32dev
+  board: esp32-s3-devkitc-1
   framework:
     type: arduino
 
@@ -37,8 +37,8 @@ ota:
 
 uart:
   id: abcdesp_uart
-  tx_pin: GPIO17
-  rx_pin: GPIO16
+  tx_pin: GPIO6
+  rx_pin: GPIO5
   baud_rate: 38400
   data_bits: 8
   stop_bits: 1
@@ -49,10 +49,6 @@ abcdesp:
   icon: "mdi:hvac"
   uart_id: abcdesp_uart
   hold_duration_minutes: 120  # 0 = permanent hold (default)
-  flow_pin:
-    number: GPIO4
-    mode:
-      output: true
   allow_control_switch:
     name: "Allow Control"
   outdoor_temp_sensor:
