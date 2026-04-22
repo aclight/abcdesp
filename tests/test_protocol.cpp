@@ -1000,8 +1000,8 @@ TEST(vacation_3b04_roundtrip) {
   // 7 days * 7 = 49 = 0x0031
   vac_buf[1] = 0x00;
   vac_buf[2] = 0x31;
-  vac_buf[3] = 55;    // min temp
-  vac_buf[4] = 85;    // max temp
+  vac_buf[3] = 60;    // min temp
+  vac_buf[4] = 80;    // max temp
   vac_buf[5] = 15;    // min humidity
   vac_buf[6] = 60;    // max humidity
   vac_buf[7] = FAN_AUTO;
@@ -1022,8 +1022,8 @@ TEST(vacation_3b04_roundtrip) {
   InfinityFrame parsed;
   ASSERT_TRUE(parse_frame(buf, buf_len, parsed));
   ASSERT_EQ(parsed.data[3], 0x01);    // active
-  ASSERT_EQ(parsed.data[3 + 3], 55);  // min temp
-  ASSERT_EQ(parsed.data[3 + 4], 85);  // max temp
+  ASSERT_EQ(parsed.data[3 + 3], 60);  // min temp
+  ASSERT_EQ(parsed.data[3 + 4], 80);  // max temp
   ASSERT_EQ(parsed.data[3 + 7], FAN_AUTO);
 
   // Verify deactivation payload
