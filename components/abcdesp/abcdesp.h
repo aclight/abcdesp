@@ -193,6 +193,7 @@ class AbcdEspComponent : public Component,
   uint32_t request_sent_ms_{0};
   uint8_t pending_table_{0};
   uint8_t pending_row_{0};
+  bool pending_is_write_{false};
   uint8_t poll_step_{0};
 
   // Communication health

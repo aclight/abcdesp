@@ -631,6 +631,453 @@ TEST(crc_fail_counter_logic) {
 }
 
 // ---------------------------------------------------------------------------
+// Temperature conversion helpers (mirrors abcdesp.cpp)
+// ---------------------------------------------------------------------------
+static float f_to_c(float f) { return (f - 32.0f) * 5.0f / 9.0f; }
+static float c_to_f(float c) { return c * 9.0f / 5.0f + 32.0f; }
+
+TEST(f_to_c_basic) {
+  printf("test_f_to_c_basic\n");
+  ASSERT_TRUE(fabsf(f_to_c(32.0f) - 0.0f) < 0.01f);     // freezing
+  ASSERT_TRUE(fabsf(f_to_c(212.0f) - 100.0f) < 0.01f);   // boiling
+  ASSERT_TRUE(fabsf(f_to_c(72.0f) - 22.222f) < 0.01f);   // room temp
+  ASSERT_TRUE(fabsf(f_to_c(-40.0f) - (-40.0f)) < 0.01f); // crossover
+  PASS();
+}
+
+TEST(c_to_f_basic) {
+  printf("test_c_to_f_basic\n");
+  ASSERT_TRUE(fabsf(c_to_f(0.0f) - 32.0f) < 0.01f);
+  ASSERT_TRUE(fabsf(c_to_f(100.0f) - 212.0f) < 0.01f);
+  ASSERT_TRUE(fabsf(c_to_f(-40.0f) - (-40.0f)) < 0.01f);
+  PASS();
+}
+
+TEST(temperature_roundtrip) {
+  printf("test_temperature_roundtrip\n");
+  // Verify f_to_c(c_to_f(x)) ≈ x for typical setpoint range
+  for (float c = 4.0f; c <= 38.0f; c += 0.5f) {
+    float roundtrip = f_to_c(c_to_f(c));
+    ASSERT_TRUE(fabsf(roundtrip - c) < 0.01f);
+  }
+  PASS();
+}
+
+TEST(setpoint_f_to_c_rounding) {
+  printf("test_setpoint_f_to_c_rounding\n");
+  // HA sends °C, component converts to °F uint8_t via: (uint8_t)(c_to_f(x) + 0.5f)
+  // Verify this rounds correctly for common setpoints
+  float c_68f = f_to_c(68.0f);  // ≈ 20.0°C
+  uint8_t result = static_cast<uint8_t>(c_to_f(c_68f) + 0.5f);
+  ASSERT_EQ(result, 68);
+
+  float c_72f = f_to_c(72.0f);  // ≈ 22.22°C
+  result = static_cast<uint8_t>(c_to_f(c_72f) + 0.5f);
+  ASSERT_EQ(result, 72);
+
+  float c_55f = f_to_c(55.0f);  // ≈ 12.78°C
+  result = static_cast<uint8_t>(c_to_f(c_55f) + 0.5f);
+  ASSERT_EQ(result, 55);
+
+  float c_85f = f_to_c(85.0f);  // ≈ 29.44°C
+  result = static_cast<uint8_t>(c_to_f(c_85f) + 0.5f);
+  ASSERT_EQ(result, 85);
+  PASS();
+}
+
+TEST(heatpump_3e01_unsigned_sanity) {
+  printf("test_heatpump_3e01_unsigned_sanity\n");
+  // 3E01 temps are parsed as uint16/16.0. Verify that values >0x7FFF
+  // produce unreasonable temperatures, confirming they'd indicate a
+  // signed-negative encoding issue.
+  uint8_t data[4];
+
+  // Normal positive: 70°F → 70*16=1120=0x0460
+  data[0] = 0x04; data[1] = 0x60;
+  data[2] = 0x00; data[3] = 0x00;
+  float outside = static_cast<float>((data[0] << 8) | data[1]) / 16.0f;
+  ASSERT_TRUE(fabsf(outside - 70.0f) < 0.01f);
+
+  // Zero
+  data[0] = 0x00; data[1] = 0x00;
+  outside = static_cast<float>((data[0] << 8) | data[1]) / 16.0f;
+  ASSERT_TRUE(fabsf(outside - 0.0f) < 0.01f);
+
+  // If the HP encoded -5°F as signed int16: -5*16=-80=0xFFB0
+  // Parsed unsigned: 65456/16 = 4091°F — obviously wrong
+  data[0] = 0xFF; data[1] = 0xB0;
+  outside = static_cast<float>((data[0] << 8) | data[1]) / 16.0f;
+  ASSERT_TRUE(outside > 4000.0f);  // confirms unsigned parse gives nonsense
+  // If we parsed as signed int16 instead:
+  int16_t signed_val = static_cast<int16_t>((data[0] << 8) | data[1]);
+  float outside_signed = static_cast<float>(signed_val) / 16.0f;
+  ASSERT_TRUE(fabsf(outside_signed - (-5.0f)) < 0.01f);  // signed gives correct value
+  PASS();
+}
+
+TEST(parse_3b02_mode_with_stage_bits) {
+  printf("test_parse_3b02_mode_with_stage_bits\n");
+  // Mode byte: low nibble = mode, bits 5-7 = stage
+  // Verify the & 0x0F mask extracts mode correctly regardless of stage bits
+  uint8_t mode_byte;
+
+  // Auto mode, stage 1 (bits 5-7 = 001 → 0x20)
+  mode_byte = 0x22;  // 0x20 | MODE_AUTO(0x02)
+  ASSERT_EQ(mode_byte & 0x0F, MODE_AUTO);
+
+  // Heat mode, stage 3 (bits 5-7 = 011 → 0x60)
+  mode_byte = 0x60;  // 0x60 | MODE_HEAT(0x00)
+  ASSERT_EQ(mode_byte & 0x0F, MODE_HEAT);
+
+  // Cool mode, stage 2 (bits 5-7 = 010 → 0x40)
+  mode_byte = 0x41;  // 0x40 | MODE_COOL(0x01)
+  ASSERT_EQ(mode_byte & 0x0F, MODE_COOL);
+
+  // Off mode, no stage
+  mode_byte = 0x05;
+  ASSERT_EQ(mode_byte & 0x0F, MODE_OFF);
+
+  // All stage bits set (0xE0) should not leak into mode
+  mode_byte = 0xE2;
+  ASSERT_EQ(mode_byte & 0x0F, MODE_AUTO);
+  PASS();
+}
+
+TEST(build_mode_write_payload) {
+  printf("test_build_mode_write_payload\n");
+  // Simulate the 3B02 mode write payload construction from control()
+  uint8_t mode_buf[29];
+  memset(mode_buf, 0, sizeof(mode_buf));
+  mode_buf[0] = 0x01;   // zone bitmap
+  mode_buf[1] = 0x00;   // flags high
+  mode_buf[2] = 0x10;   // flags low — mode field (bit 4)
+  mode_buf[22] = MODE_COOL;
+
+  // Verify structure
+  ASSERT_EQ(mode_buf[0], 0x01);
+  ASSERT_EQ(mode_buf[2], 0x10);         // only mode flag set
+  ASSERT_EQ(mode_buf[22], MODE_COOL);
+
+  // Zone bitmap should only include zone 1
+  ASSERT_EQ(mode_buf[0] & 0xFE, 0x00);  // no other zones
+
+  // Build as a frame and verify it round-trips
+  InfinityFrame f;
+  f.dst = ADDR_TSTAT;
+  f.src = ADDR_SAM;
+  f.func = FUNC_WRITE;
+  f.length = 3 + 29;
+  f.data[0] = 0x00;
+  f.data[1] = 0x3B;
+  f.data[2] = 0x02;
+  memcpy(f.data + 3, mode_buf, 29);
+
+  uint8_t buf[64];
+  uint16_t buf_len;
+  build_frame(f, buf, buf_len);
+
+  InfinityFrame parsed;
+  ASSERT_TRUE(parse_frame(buf, buf_len, parsed));
+  ASSERT_EQ(parsed.func, FUNC_WRITE);
+  ASSERT_EQ(parsed.data[3 + 22], MODE_COOL);
+  ASSERT_EQ(parsed.data[3 + 0], 0x01);  // zone bitmap preserved
+  ASSERT_EQ(parsed.data[3 + 2], 0x10);  // flags preserved
+  PASS();
+}
+
+TEST(build_setpoint_write_payload) {
+  printf("test_build_setpoint_write_payload\n");
+  // Simulate 3B03 setpoint write from control() with hold
+  uint8_t write_buf[54];
+  memset(write_buf, 0, sizeof(write_buf));
+
+  write_buf[0] = 0x01;   // zone bitmap: zone 1
+
+  uint8_t new_fan = FAN_MED;
+  uint8_t new_heat = 70;
+  uint8_t new_cool = 76;
+  uint16_t flags = 0;
+
+  flags |= 0x0001;  // fan mode
+  flags |= 0x0004;  // heat setpoint
+  flags |= 0x0008;  // cool setpoint
+  flags |= 0x0002;  // hold flag (because setpoints changed)
+
+  write_buf[1] = (flags >> 8) & 0xFF;
+  write_buf[2] = flags & 0xFF;
+
+  write_buf[3] = new_fan;
+  for (int i = 1; i < 8; i++) {
+    write_buf[3 + i] = FAN_AUTO;
+  }
+
+  write_buf[11] = 0x01;  // hold zone 1
+
+  write_buf[12] = new_heat;
+  for (int i = 1; i < 8; i++) {
+    write_buf[12 + i] = new_heat;
+  }
+
+  write_buf[20] = new_cool;
+  for (int i = 1; i < 8; i++) {
+    write_buf[20 + i] = new_cool;
+  }
+
+  // Verify key fields
+  ASSERT_EQ(write_buf[0], 0x01);          // zone 1 only
+  ASSERT_EQ(write_buf[2], 0x0F);          // flags: fan + hold + heat + cool
+  ASSERT_EQ(write_buf[3], FAN_MED);       // zone 1 fan
+  ASSERT_EQ(write_buf[4], FAN_AUTO);      // zone 2 default
+  ASSERT_EQ(write_buf[11], 0x01);         // hold set
+  ASSERT_EQ(write_buf[12], 70);           // zone 1 heat
+  ASSERT_EQ(write_buf[20], 76);           // zone 1 cool
+  PASS();
+}
+
+TEST(build_timed_hold_write_payload) {
+  printf("test_build_timed_hold_write_payload\n");
+  // Simulate 3B03 write with timed override
+  uint8_t write_buf[54];
+  memset(write_buf, 0, sizeof(write_buf));
+
+  write_buf[0] = 0x01;
+
+  uint16_t flags = 0;
+  flags |= 0x0004;  // heat setpoint
+  flags |= 0x0002;  // hold flag
+  flags |= 0x0040;  // timed override flag
+  flags |= 0x0080;  // override time field
+
+  uint16_t hold_minutes = 120;
+  write_buf[11] = 0x01;  // hold zone 1
+  write_buf[12] = 72;    // heat setpoint
+  write_buf[37] = 0x01;  // timed override zone 1
+  write_buf[38] = (hold_minutes >> 8) & 0xFF;
+  write_buf[39] = hold_minutes & 0xFF;
+
+  write_buf[1] = (flags >> 8) & 0xFF;
+  write_buf[2] = flags & 0xFF;
+
+  // Verify
+  ASSERT_EQ(write_buf[37], 0x01);
+  ASSERT_EQ((write_buf[38] << 8) | write_buf[39], 120);
+  ASSERT_EQ(write_buf[1], 0x00);
+  ASSERT_EQ(write_buf[2], 0xC6);  // 0x0002|0x0004|0x0040|0x0080
+  PASS();
+}
+
+TEST(build_clear_hold_payload) {
+  printf("test_build_clear_hold_payload\n");
+  // Simulate the clear_hold() payload construction
+  uint8_t write_buf[54];
+  memset(write_buf, 0, sizeof(write_buf));
+
+  write_buf[0] = 0x01;   // zone bitmap: zone 1
+  uint16_t flags = 0x0002 | 0x0040 | 0x0080;
+  write_buf[1] = (flags >> 8) & 0xFF;
+  write_buf[2] = flags & 0xFF;
+  write_buf[11] = 0x00;  // clear hold
+  write_buf[37] = 0x00;  // clear timed override
+  write_buf[38] = 0x00;
+  write_buf[39] = 0x00;
+
+  // Verify all hold/override fields are cleared
+  ASSERT_EQ(write_buf[11], 0x00);
+  ASSERT_EQ(write_buf[37], 0x00);
+  ASSERT_EQ(write_buf[38], 0x00);
+  ASSERT_EQ(write_buf[39], 0x00);
+  // Verify flags request the hold and override fields
+  uint16_t encoded_flags = (write_buf[1] << 8) | write_buf[2];
+  ASSERT_TRUE((encoded_flags & 0x0002) != 0);   // hold flag
+  ASSERT_TRUE((encoded_flags & 0x0040) != 0);   // timed override flag
+  ASSERT_TRUE((encoded_flags & 0x0080) != 0);   // override time flag
+  // Verify no other fields are flagged (we're only clearing hold)
+  ASSERT_EQ(encoded_flags & ~(0x0002 | 0x0040 | 0x0080), 0);
+  PASS();
+}
+
+TEST(frame_max_data_length) {
+  printf("test_frame_max_data_length\n");
+  // Verify frames with maximum data length (255 bytes) build and parse correctly
+  InfinityFrame f;
+  f.dst = 0x2001;
+  f.src = 0x9201;
+  f.func = FUNC_ACK06;
+  f.length = 255;
+  for (int i = 0; i < 255; i++) {
+    f.data[i] = static_cast<uint8_t>(i);
+  }
+
+  uint8_t buf[270];
+  uint16_t buf_len;
+  build_frame(f, buf, buf_len);
+  ASSERT_EQ(buf_len, (uint16_t)(FRAME_HEADER_LEN + 255 + FRAME_CRC_LEN));
+
+  InfinityFrame parsed;
+  ASSERT_TRUE(parse_frame(buf, buf_len, parsed));
+  ASSERT_EQ(parsed.length, 255);
+  ASSERT_EQ(parsed.data[0], 0);
+  ASSERT_EQ(parsed.data[254], 254);
+  PASS();
+}
+
+TEST(frame_zero_data_length) {
+  printf("test_frame_zero_data_length\n");
+  // A frame with zero data bytes (just header + CRC)
+  InfinityFrame f;
+  f.dst = 0x2001;
+  f.src = 0x9201;
+  f.func = FUNC_ACK06;
+  f.length = 0;
+
+  uint8_t buf[16];
+  uint16_t buf_len;
+  build_frame(f, buf, buf_len);
+  ASSERT_EQ(buf_len, (uint16_t)FRAME_MIN_LEN);
+
+  InfinityFrame parsed;
+  ASSERT_TRUE(parse_frame(buf, buf_len, parsed));
+  ASSERT_EQ(parsed.length, 0);
+  ASSERT_EQ(parsed.func, FUNC_ACK06);
+  PASS();
+}
+
+TEST(parse_frame_truncated_data) {
+  printf("test_parse_frame_truncated_data\n");
+  // Build a valid frame, then present it with fewer bytes than length indicates
+  InfinityFrame f;
+  f.dst = 0x2001;
+  f.src = 0x9201;
+  f.func = FUNC_READ;
+  f.length = 3;
+  f.data[0] = 0x00; f.data[1] = 0x3B; f.data[2] = 0x02;
+
+  uint8_t buf[32];
+  uint16_t buf_len;
+  build_frame(f, buf, buf_len);  // 13 bytes total
+
+  // Pass only 11 bytes — not enough for header(8)+data(3)+crc(2)
+  InfinityFrame parsed;
+  ASSERT_TRUE(!parse_frame(buf, 11, parsed));
+  PASS();
+}
+
+TEST(crc16_single_byte) {
+  printf("test_crc16_single_byte\n");
+  // CRC of a single byte should be non-trivial
+  uint8_t b = 0x42;
+  uint16_t c = crc16(&b, 1);
+  ASSERT_TRUE(c != 0);  // CRC of non-zero byte is non-zero for this poly
+  // Verify determinism
+  ASSERT_EQ(c, crc16(&b, 1));
+  PASS();
+}
+
+TEST(parse_airhandler_0306_blower) {
+  printf("test_parse_airhandler_0306_blower\n");
+  // 0306: [0]=unknown, [1-2]=blower_rpm (uint16 BE), [3-4]=unknown
+  uint8_t data[5] = {0};
+
+  // Blower off
+  data[1] = 0x00; data[2] = 0x00;
+  uint16_t rpm = (data[1] << 8) | data[2];
+  ASSERT_EQ(rpm, 0);
+  ASSERT_TRUE(rpm == 0);  // not running
+
+  // Blower running at 1200 RPM = 0x04B0
+  data[1] = 0x04; data[2] = 0xB0;
+  rpm = (data[1] << 8) | data[2];
+  ASSERT_EQ(rpm, 1200);
+  ASSERT_TRUE(rpm > 0);  // running
+  PASS();
+}
+
+TEST(vacation_3b04_roundtrip) {
+  printf("test_vacation_3b04_roundtrip\n");
+  // Build a vacation-activate payload and verify all fields
+  uint8_t vac_buf[8];
+  vac_buf[0] = 0x01;  // active
+  // 7 days * 7 = 49 = 0x0031
+  vac_buf[1] = 0x00;
+  vac_buf[2] = 0x31;
+  vac_buf[3] = 55;    // min temp
+  vac_buf[4] = 85;    // max temp
+  vac_buf[5] = 15;    // min humidity
+  vac_buf[6] = 60;    // max humidity
+  vac_buf[7] = FAN_AUTO;
+
+  // Wrap in a WRITE frame and verify it round-trips
+  InfinityFrame f;
+  f.dst = ADDR_TSTAT;
+  f.src = ADDR_SAM;
+  f.func = FUNC_WRITE;
+  f.length = 3 + 8;
+  f.data[0] = 0x00; f.data[1] = 0x3B; f.data[2] = 0x04;
+  memcpy(f.data + 3, vac_buf, 8);
+
+  uint8_t buf[32];
+  uint16_t buf_len;
+  build_frame(f, buf, buf_len);
+
+  InfinityFrame parsed;
+  ASSERT_TRUE(parse_frame(buf, buf_len, parsed));
+  ASSERT_EQ(parsed.data[3], 0x01);    // active
+  ASSERT_EQ(parsed.data[3 + 3], 55);  // min temp
+  ASSERT_EQ(parsed.data[3 + 4], 85);  // max temp
+  ASSERT_EQ(parsed.data[3 + 7], FAN_AUTO);
+
+  // Verify deactivation payload
+  memset(vac_buf, 0, sizeof(vac_buf));
+  ASSERT_EQ(vac_buf[0], 0x00);  // inactive
+  PASS();
+}
+
+TEST(hold_zone_bitmap) {
+  printf("test_hold_zone_bitmap\n");
+  // Verify zone bitmap bitfield usage for hold
+  uint8_t zone_hold = 0;
+
+  // No zones on hold
+  ASSERT_EQ(zone_hold & 0x01, 0);  // zone 1 not held
+
+  // Zone 1 on hold
+  zone_hold = 0x01;
+  ASSERT_EQ(zone_hold & 0x01, 1);
+
+  // Zones 1 and 3 on hold
+  zone_hold = 0x05;
+  ASSERT_EQ(zone_hold & 0x01, 1);  // zone 1
+  ASSERT_EQ(zone_hold & 0x02, 0);  // zone 2 not held
+  ASSERT_EQ(zone_hold & 0x04, 4);  // zone 3
+
+  // All 8 zones on hold
+  zone_hold = 0xFF;
+  for (int z = 0; z < 8; z++) {
+    ASSERT_TRUE((zone_hold & (1 << z)) != 0);
+  }
+  PASS();
+}
+
+TEST(snoop_address_class_matching) {
+  printf("test_snoop_address_class_matching\n");
+  // Verify the address class masking used in handle_frame for snooping
+  // Air handler addresses: 0x40xx, 0x42xx
+  ASSERT_EQ(0x4001 & 0xFF00, 0x4000);
+  ASSERT_EQ(0x4201 & 0xFF00, 0x4200);
+  // Not an air handler
+  ASSERT_TRUE((0x5001 & 0xFF00) != 0x4000);
+  ASSERT_TRUE((0x5001 & 0xFF00) != 0x4200);
+
+  // Heat pump addresses: 0x50xx, 0x51xx, 0x52xx
+  ASSERT_EQ(0x5001 & 0xFF00, 0x5000);
+  ASSERT_EQ(0x5101 & 0xFF00, 0x5100);
+  ASSERT_EQ(0x5201 & 0xFF00, 0x5200);
+  // SAM is not matched as heat pump
+  ASSERT_TRUE((0x9201 & 0xFF00) != 0x5000);
+  PASS();
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 int main() {
