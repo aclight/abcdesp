@@ -167,6 +167,7 @@ void AbcdEspComponent::send_read_request(uint16_t dst, uint8_t table,
   request_sent_ms_ = millis();
   pending_table_ = table;
   pending_row_ = row;
+  pending_is_write_ = false;
 
   ESP_LOGD(TAG, "Sent READ 0x%02X%02X to 0x%04X", table, row, dst);
 }
@@ -180,6 +181,14 @@ void AbcdEspComponent::send_write_request(uint16_t dst, uint8_t table,
                                                    uint8_t payload_len) {
   uint32_t now = millis();
   if (now - last_send_ms_ < MIN_FRAME_GAP_MS) {
+    ESP_LOGW(TAG, "WRITE 0x%02X%02X dropped — frame gap not satisfied (try again next loop)",
+             table, row);
+    return;
+  }
+
+  if (payload_len > 252) {
+    ESP_LOGE(TAG, "WRITE 0x%02X%02X payload too large (%d bytes, max 252) — dropped",
+             table, row, payload_len);
     return;
   }
 
@@ -202,6 +211,11 @@ void AbcdEspComponent::send_write_request(uint16_t dst, uint8_t table,
 
   ESP_LOGD(TAG, "Sent WRITE 0x%02X%02X to 0x%04X (%d bytes)", table, row, dst,
            payload_len);
+
+  // Track the write so NAK logging identifies the correct request
+  pending_table_ = table;
+  pending_row_ = row;
+  pending_is_write_ = true;
 }
 
 // ==========================================================================
@@ -327,9 +341,15 @@ void AbcdEspComponent::loop() {
   // --- Send pending write if gap is satisfied ---
   if (write_pending_ && !awaiting_response_ &&
       (now - last_send_ms_ >= MIN_FRAME_GAP_MS)) {
-    send_write_request(ADDR_TSTAT, TBL_SAM_INFO, ROW_SAM_ZONES,
-                       write_buf_, write_len_);
-    write_pending_ = false;
+    // Re-check Allow Control in case it was toggled off after queuing
+    if (allow_control_switch_ == nullptr || !allow_control_switch_->state) {
+      ESP_LOGW(TAG, "Pending write discarded — Allow Control switched OFF after queuing");
+      write_pending_ = false;
+    } else {
+      send_write_request(ADDR_TSTAT, TBL_SAM_INFO, ROW_SAM_ZONES,
+                         write_buf_, write_len_);
+      write_pending_ = false;
+    }
   }
 }
 
@@ -366,8 +386,9 @@ void AbcdEspComponent::handle_frame(const InfinityFrame &frame) {
 
   // --- NAK to our request ---
   if (frame.func == FUNC_NAK && frame.dst == ADDR_SAM) {
-    ESP_LOGE(TAG, "NAK received from 0x%04X for pending 0x%02X%02X — command rejected by thermostat",
-             frame.src, pending_table_, pending_row_);
+    ESP_LOGE(TAG, "NAK received from 0x%04X for pending %s 0x%02X%02X — command rejected by thermostat",
+             frame.src, pending_is_write_ ? "WRITE" : "READ",
+             pending_table_, pending_row_);
     awaiting_response_ = false;
     return;
   }
@@ -637,13 +658,21 @@ void AbcdEspComponent::parse_heatpump_01(const uint8_t *data,
     return;
   }
 
-  hp_outside_temp_ =
-      static_cast<float>((data[0] << 8) | data[1]) / 16.0f;
-  hp_coil_temp_ =
-      static_cast<float>((data[2] << 8) | data[3]) / 16.0f;
+  uint16_t raw_outside = (data[0] << 8) | data[1];
+  uint16_t raw_coil = (data[2] << 8) | data[3];
+  hp_outside_temp_ = static_cast<float>(raw_outside) / 16.0f;
+  hp_coil_temp_ = static_cast<float>(raw_coil) / 16.0f;
 
-  ESP_LOGD(TAG, "3E01: outside=%.1f°F  coil=%.1f°F", hp_outside_temp_,
-           hp_coil_temp_);
+  // Log raw values so users can verify encoding in cold weather.
+  // If raw_outside > 0x7FFF, the value may be a signed negative temperature
+  // that we are misinterpreting as unsigned. See GitHub issue notes.
+  if (raw_outside > 0x7FFF || raw_coil > 0x7FFF) {
+    ESP_LOGW(TAG, "3E01 raw values may be signed-negative: outside=0x%04X (%.1f°F)  coil=0x%04X (%.1f°F)",
+             raw_outside, hp_outside_temp_, raw_coil, hp_coil_temp_);
+  }
+
+  ESP_LOGD(TAG, "3E01: outside=%.1f°F  coil=%.1f°F  (raw: 0x%04X, 0x%04X)",
+           hp_outside_temp_, hp_coil_temp_, raw_outside, raw_coil);
 
   // Use heat pump outside temp if we have it (higher precision than 3B02)
   if (!std::isnan(hp_outside_temp_)) {
