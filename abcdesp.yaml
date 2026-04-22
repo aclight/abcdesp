@@ -90,7 +90,6 @@ abcdesp:
     name: "Clear Hold"
   hold_duration_number:
     name: "Hold Duration"
-    restore_value: true
   set_hold_time_number:
     name: "Set Hold Time"
 

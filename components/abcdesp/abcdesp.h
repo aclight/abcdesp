@@ -9,6 +9,7 @@
 #include "esphome/components/button/button.h"
 #include "esphome/components/number/number.h"
 #include "esphome/components/uart/uart.h"
+#include "esphome/core/preferences.h"
 
 namespace esphome {
 namespace abcdesp {
@@ -120,10 +121,12 @@ class AllowControlSwitch : public switch_::Switch {
 class HoldDurationNumber : public number::Number {
  public:
   void set_parent(AbcdEspComponent *parent) { parent_ = parent; }
+  void setup_restore();
 
  protected:
   void control(float value) override;
   AbcdEspComponent *parent_{nullptr};
+  ESPPreferenceObject pref_;
 };
 
 // ---------------------------------------------------------------------------

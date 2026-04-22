@@ -22,8 +22,21 @@ void ClearHoldButton::press_action() {
 // ==========================================================================
 void HoldDurationNumber::control(float value) {
   publish_state(value);
+  float v = value;
+  this->pref_.save(&v);
   if (parent_ != nullptr) {
     parent_->set_hold_duration_minutes(static_cast<uint16_t>(value));
+  }
+}
+
+void HoldDurationNumber::setup_restore() {
+  this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+  float restored;
+  if (this->pref_.load(&restored)) {
+    this->publish_state(restored);
+    if (parent_ != nullptr) {
+      parent_->set_hold_duration_minutes(static_cast<uint16_t>(restored));
+    }
   }
 }
 
@@ -250,9 +263,12 @@ void AbcdEspComponent::setup() {
   if (allow_control_switch_ != nullptr) {
     allow_control_switch_->publish_state(false);
   }
-  // Initialize hold duration number from compile-time config if not restored
-  if (hold_duration_number_ != nullptr && std::isnan(hold_duration_number_->state)) {
-    hold_duration_number_->publish_state(static_cast<float>(hold_duration_minutes_));
+  // Restore hold duration number from flash, or initialize from compile-time config
+  if (hold_duration_number_ != nullptr) {
+    hold_duration_number_->setup_restore();
+    if (std::isnan(hold_duration_number_->state)) {
+      hold_duration_number_->publish_state(static_cast<float>(hold_duration_minutes_));
+    }
   }
   rx_len_ = 0;
   last_poll_ms_ = millis();
