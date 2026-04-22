@@ -16,16 +16,27 @@ esp32:
     type: arduino
 
 logger:
-  baud_rate: 0  # disable logging on UART0 to avoid bus noise
+  level: INFO
 
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
+  power_save_mode: none
   ap:
     ssid: "ABCDESP-Fallback"
     password: !secret wifi_fallback_password
 
 captive_portal:
+
+# ----------------------------------------------------------------
+# Bluetooth Proxy
+# ----------------------------------------------------------------
+esp32_ble_tracker:
+  scan_parameters:
+    active: true
+
+bluetooth_proxy:
+  active: true
 
 api:
   encryption:
@@ -77,3 +88,38 @@ abcdesp:
     name: "Hold Time Remaining"
   clear_hold_button:
     name: "Clear Hold"
+
+# ----------------------------------------------------------------
+# Diagnostics
+# ----------------------------------------------------------------
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+  - platform: uptime
+    name: "Uptime"
+    update_interval: 60s
+  - platform: internal_temperature
+    name: "ESP Temperature"
+
+button:
+  - platform: restart
+    icon: mdi:power-cycle
+    name: "ESP Reboot"
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+    mac_address:
+      name: "Mac Address"
+    ssid:
+      name: "Connected SSID"
+  - platform: version
+    name: "Version"
+    hide_timestamp: true
+    entity_category: diagnostic
+
+binary_sensor:
+  - platform: status
+    name: "Online"
