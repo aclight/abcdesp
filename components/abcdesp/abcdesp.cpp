@@ -974,19 +974,19 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
     auto preset = *call.get_preset();
     if (preset == climate::CLIMATE_PRESET_AWAY && !vacation_active_) {
       // Activate vacation with default settings:
-      // 7 days, min 55°F, max 85°F, 15% min humidity, 60% max humidity, fan auto
+      // 7 days, min 60°F, max 80°F, 15% min humidity, 60% max humidity, fan auto
       uint8_t vac_buf[8];
       vac_buf[0] = 0x01;  // vacation_active = 1
       vac_buf[1] = 0x00;  // days*7 high byte (7*7=49)
       vac_buf[2] = 0x31;  // days*7 low byte (49)
-      vac_buf[3] = 55;    // min temp °F
-      vac_buf[4] = 85;    // max temp °F
+      vac_buf[3] = 60;    // min temp °F
+      vac_buf[4] = 80;    // max temp °F
       vac_buf[5] = 15;    // min humidity
       vac_buf[6] = 60;    // max humidity
       vac_buf[7] = FAN_AUTO;
       send_write_request(ADDR_TSTAT, TBL_SAM_INFO, ROW_SAM_VACATION,
                          vac_buf, 8);
-      ESP_LOGI(TAG, "Activating vacation mode (7 days, 55-85F)");
+      ESP_LOGI(TAG, "Activating vacation mode (7 days, 60-80F)");
     } else if (preset == climate::CLIMATE_PRESET_HOME && vacation_active_) {
       // Deactivate vacation
       uint8_t vac_buf[8];

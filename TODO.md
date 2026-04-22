@@ -23,7 +23,7 @@ Currently only Zone 1 is read and controlled. The Carrier Infinity protocol supp
 - ~~Runtime hold duration~~ — `hold_duration_number` and `set_hold_time_number` entities allow changing hold duration and adjusting active hold time from HA at runtime; `hold_duration_number` has `restore_value: true` for persistence across reboots; compile-time `hold_duration_minutes` YAML config remains as backward-compatible fallback
 
 ### Remaining work
-- **Configurable vacation parameters** — vacation preset currently uses hardcoded values (7 days, 55–85°F, fan auto). Consider exposing as YAML config or number entities. Low priority — matches thermostat's native behavior.
+- **Configurable vacation parameters** — vacation preset currently uses hardcoded values (7 days, 60–80°F, fan auto). Consider exposing as YAML config or number entities. Low priority — matches thermostat's native behavior.
 
 ## Additional Sensors
 
@@ -38,7 +38,7 @@ _(All planned sensors have been implemented.)_
 - ~~**Away/vacation preset**~~ — done: CLIMATE_PRESET_HOME/AWAY mapped to 3B04 vacation register
 - ~~**Internalize Allow Control switch**~~ — done: AllowControlSwitch class registered inside the component
 - ~~**Entity categories**~~ — done: allow_control_switch and clear_hold_button set to CONFIG, blower set to RUNNING device_class (PR #12)
-- **Configurable vacation parameters** — vacation preset currently uses hardcoded values (7 days, 55–85°F, fan auto). Consider exposing as YAML config or number entities. Low priority — matches thermostat's native behavior.
+- **Configurable vacation parameters** — vacation preset currently uses hardcoded values (7 days, 60–80°F, fan auto). Consider exposing as YAML config or number entities. Low priority — matches thermostat's native behavior.
 
 ## Home Assistant Dashboard
 
