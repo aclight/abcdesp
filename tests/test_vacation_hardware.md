@@ -35,10 +35,12 @@ Monitor the thermostat display and ESPHome logs closely.
 
 **Thermostat shows:** ___ days, ___–___°F
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -52,10 +54,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - Climate entity shows preset "Home"
 - Log: "Deactivating vacation mode"
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -74,10 +78,12 @@ Monitor the thermostat display and ESPHome logs closely.
 
 **Thermostat shows:** ___ days, ___–___°F
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -93,10 +99,12 @@ Monitor the thermostat display and ESPHome logs closely.
 
 **Thermostat set:** ___ days, ___–___°F &ensp; **HA shows:** ___ days, ___–___°F
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -113,10 +121,12 @@ Monitor the thermostat display and ESPHome logs closely.
 
 **Thermostat shows:** ___ day(s)
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -132,10 +142,12 @@ Monitor the thermostat display and ESPHome logs closely.
 
 **Thermostat shows:** ___ day(s)
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -152,10 +164,12 @@ Monitor the thermostat display and ESPHome logs closely.
 
 **Thermostat shows:** ___–___°F
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -171,10 +185,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - Vacation activates with defaults: 7 days, 60–80°F
 - Behavior identical to before this feature
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -188,10 +204,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - Climate entity updates to preset "Home"
 - Log: "3B04: vacation=off"
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -206,10 +224,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - Log: "Control blocked: Allow Control switch is OFF"
 - Climate entity remains on "Home"
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 

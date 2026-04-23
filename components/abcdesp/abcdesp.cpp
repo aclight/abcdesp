@@ -1176,7 +1176,7 @@ void AbcdEspComponent::publish_climate_state() {
   }
 
   // Preset — only show Away when vacation is active
-  if (vacation_initialized_ && vacation_active_) {
+  if (vacation_active_) {
     this->preset = climate::CLIMATE_PRESET_AWAY;
   } else {
     this->preset.reset();

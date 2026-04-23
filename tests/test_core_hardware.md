@@ -41,10 +41,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - Comms OK → ON
 - ESPHome logs show read requests only — no 0x0C (write) function codes
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -66,10 +68,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - [ ] `sensor.abcdesp_hold_time_remaining` — shows countdown if timed hold active
 - [ ] `binary_sensor.abcdesp_communication_ok` — ON
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -84,10 +88,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - Climate entity in HA updates to match
 - No writes sent (verify in logs — no "Sending write" messages)
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -102,10 +108,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - Climate entity setpoint in HA updates to match thermostat
 - No bus writes
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -121,10 +129,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - `sensor.abcdesp_hold_time_remaining` updates if timed hold
 - No bus writes from ESP
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -140,10 +150,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - Vacation number entities update to reflect thermostat values (days, min/max temps)
 - No bus writes from ESP
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -165,10 +177,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - Thermostat display unchanged
 - Entity state in HA does **not** change
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -188,10 +202,12 @@ Monitor the thermostat display and ESPHome logs closely.
 
 **Duration tested:** _______________ minutes
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -206,10 +222,12 @@ Monitor the thermostat display and ESPHome logs closely.
 **Steps:**
 1. If not already tested in test 1, confirm `switch.abcdesp_allow_control` = OFF after a fresh flash
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -224,10 +242,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - Setpoint change appears on thermostat display
 - Log shows write sent to bus
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -241,10 +261,12 @@ Monitor the thermostat display and ESPHome logs closely.
 **Expected:**
 - Allow Control restores to ON (persisted via ESPHome preferences)
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -266,10 +288,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - Climate entity mode updates to `cool`
 - Action updates appropriately (idle or cooling depending on setpoint)
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -283,10 +307,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - Climate entity mode updates to `heat_cool`
 - Both heat and cool setpoints visible in HA
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -301,10 +327,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - Climate action → `off`
 - Blower should stop (may take a few seconds for fan-off delay)
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -317,10 +345,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - Thermostat display shows Heat mode
 - Climate entity updates to `heat`
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -334,10 +364,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - Climate entity in HA updates to match thermostat selection
 - No writes sent by the ESP (read-only sync)
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -357,10 +389,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - Climate entity `fan_mode` matches selection at each step
 - If system is actively heating/cooling, blower speed changes audibly
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -373,10 +407,12 @@ Monitor the thermostat display and ESPHome logs closely.
 **Expected:**
 - Climate entity `fan_mode` in HA updates to match
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -396,10 +432,12 @@ Monitor the thermostat display and ESPHome logs closely.
 
 **Setpoint sent:** ___°F &ensp; **Thermostat shows:** ___°F
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -415,10 +453,12 @@ Monitor the thermostat display and ESPHome logs closely.
 
 **Setpoint sent:** ___°F &ensp; **Thermostat shows:** ___°F
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -435,10 +475,12 @@ Monitor the thermostat display and ESPHome logs closely.
 
 **Heat sent:** ___°F → **Thermostat:** ___°F &ensp; **Cool sent:** ___°F → **Thermostat:** ___°F
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -451,10 +493,12 @@ Monitor the thermostat display and ESPHome logs closely.
 **Expected:**
 - Climate entity in HA updates to match the thermostat setpoint
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -473,10 +517,12 @@ Monitor the thermostat display and ESPHome logs closely.
 
 **Thermostat:** ___°F &ensp; **HA:** ___°F &ensp; **Independent (if avail):** ___°F
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -492,10 +538,12 @@ Monitor the thermostat display and ESPHome logs closely.
 
 **HA value:** ___°F &ensp; **Reference (tstat/weather):** ___°F
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -510,10 +558,12 @@ Monitor the thermostat display and ESPHome logs closely.
 
 **HA value:** ___% &ensp; **Thermostat:** ___%
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -535,10 +585,12 @@ Monitor the thermostat display and ESPHome logs closely.
 
 **HA value (running):** ___°F &ensp; **HA value (idle):** ___°F
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -560,10 +612,12 @@ Monitor the thermostat display and ESPHome logs closely.
 
 **CFM idle:** ___ &ensp; **CFM running:** ___ &ensp; **Fan speed:** ___
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -588,10 +642,12 @@ Monitor the thermostat display and ESPHome logs closely.
 
 **Stage observed:** ___ &ensp; **Label observed:** _______________
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -612,10 +668,12 @@ Monitor the thermostat display and ESPHome logs closely.
 
 **Stage observed:** ___ &ensp; **Label observed:** _______________
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -634,10 +692,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - Sensor flips to ON when blower engages
 - Flips back to OFF when blower stops (may lag by fan-off delay, typically 60–90 seconds)
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -654,10 +714,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - State transitions match hold activation and clearing
 - Also changes if hold is set or cleared from the physical thermostat
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -675,10 +737,12 @@ Monitor the thermostat display and ESPHome logs closely.
 
 - [ ] **Skipped** disconnect test (destructive)
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -699,10 +763,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - Action state correctly tracks: off, heating, cooling, fan, idle
 - Transitions happen within one poll cycle (~5 seconds)
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -723,10 +789,12 @@ Monitor the thermostat display and ESPHome logs closely.
 - Polling resumes normally after reconnection
 - No error codes on thermostat
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -743,10 +811,12 @@ Monitor the thermostat display and ESPHome logs closely.
 
 **CRC failures observed:** ___ in ___ minutes
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 

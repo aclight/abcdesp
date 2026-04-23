@@ -56,6 +56,7 @@ uart:
   parity: NONE
 
 abcdesp:
+  id: hvac
   name: "HVAC"
   icon: "mdi:hvac"
   uart_id: abcdesp_uart
@@ -100,6 +101,84 @@ abcdesp:
     name: "Vacation Max Temp"
   last_seen_sensor:
     name: "Last Seen"
+
+# ----------------------------------------------------------------
+# Status LED — WS2812C on M5Stack AtomS3 Lite (GPIO35)
+# Replicates thermostat red/blue LED behavior:
+#   solid = mode enabled, blinking = actively running
+# ----------------------------------------------------------------
+light:
+  - platform: neopixelbus
+    id: status_led
+    pin: GPIO35
+    num_leds: 1
+    type: GRB
+    variant: WS2812
+    method: ESP32_RMT_0
+    name: "Status LED"
+    internal: true
+    default_transition_length: 0ms
+
+interval:
+  - interval: 500ms
+    then:
+      - lambda: |-
+          static bool blink_on = true;
+          blink_on = !blink_on;
+
+          auto mode = id(hvac).mode;
+          auto action = id(hvac).action;
+
+          if (mode == climate::CLIMATE_MODE_OFF) {
+            auto call = id(status_led).turn_off();
+            call.set_transition_length(0);
+            call.perform();
+            return;
+          }
+
+          if (action == climate::CLIMATE_ACTION_HEATING) {
+            if (blink_on) {
+              auto call = id(status_led).turn_on();
+              call.set_rgb(1.0f, 0.0f, 0.0f);
+              call.set_brightness(0.5f);
+              call.set_transition_length(0);
+              call.perform();
+            } else {
+              auto call = id(status_led).turn_off();
+              call.set_transition_length(0);
+              call.perform();
+            }
+          } else if (action == climate::CLIMATE_ACTION_COOLING) {
+            if (blink_on) {
+              auto call = id(status_led).turn_on();
+              call.set_rgb(0.0f, 0.0f, 1.0f);
+              call.set_brightness(0.5f);
+              call.set_transition_length(0);
+              call.perform();
+            } else {
+              auto call = id(status_led).turn_off();
+              call.set_transition_length(0);
+              call.perform();
+            }
+          } else if (mode == climate::CLIMATE_MODE_HEAT) {
+            auto call = id(status_led).turn_on();
+            call.set_rgb(1.0f, 0.0f, 0.0f);
+            call.set_brightness(0.3f);
+            call.set_transition_length(0);
+            call.perform();
+          } else if (mode == climate::CLIMATE_MODE_COOL) {
+            auto call = id(status_led).turn_on();
+            call.set_rgb(0.0f, 0.0f, 1.0f);
+            call.set_brightness(0.3f);
+            call.set_transition_length(0);
+            call.perform();
+          } else if (mode == climate::CLIMATE_MODE_HEAT_COOL) {
+            auto call = id(status_led).turn_on();
+            call.set_rgb(0.6f, 0.0f, 1.0f);
+            call.set_brightness(0.3f);
+            call.set_transition_length(0);
+            call.perform();
+          }
 
 # ----------------------------------------------------------------
 # Diagnostics

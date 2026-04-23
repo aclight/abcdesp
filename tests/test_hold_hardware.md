@@ -36,10 +36,12 @@ The HVAC bus is sensitive to incorrect writes — monitor the thermostat display
 
 **Hold Time Remaining observed:** ___ min
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -57,10 +59,12 @@ The HVAC bus is sensitive to incorrect writes — monitor the thermostat display
 
 **Hold Time Remaining observed:** ___ min
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -76,10 +80,12 @@ The HVAC bus is sensitive to incorrect writes — monitor the thermostat display
 - Thermostat display shows permanent hold (no countdown)
 - Log: "Adjusting hold to permanent"
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -95,10 +101,12 @@ The HVAC bus is sensitive to incorrect writes — monitor the thermostat display
 - Log: "Adjust hold blocked: no active hold on zone 1"
 - Thermostat display unchanged
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -113,10 +121,12 @@ The HVAC bus is sensitive to incorrect writes — monitor the thermostat display
 - No write sent to the bus
 - Log: "Adjust hold blocked: Allow Control switch is OFF"
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -132,10 +142,12 @@ The HVAC bus is sensitive to incorrect writes — monitor the thermostat display
 
 **Hold Time Remaining observed:** ___ min
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -150,10 +162,12 @@ The HVAC bus is sensitive to incorrect writes — monitor the thermostat display
 - Hold Time Remaining stays 0
 - Thermostat display shows permanent hold
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -169,10 +183,12 @@ The HVAC bus is sensitive to incorrect writes — monitor the thermostat display
 
 **Hold Duration after reboot:** ___
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -190,10 +206,12 @@ The HVAC bus is sensitive to incorrect writes — monitor the thermostat display
 - Timed hold uses compile-time 120 minute value
 - No errors in logs about missing entities
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 
@@ -211,10 +229,12 @@ The HVAC bus is sensitive to incorrect writes — monitor the thermostat display
 
 **Time until hold cleared:** ___ min
 
-**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+**Result:**
+- [ ] PASS
+- [ ] FAIL
 
 **Actual / Notes:**
-> &nbsp;
+> 
 
 ---
 

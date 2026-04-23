@@ -86,43 +86,55 @@ views:
             icon: mdi:weather-windy
 
       # ----------------------------------------------------------------
-      # Hold & controls
+      # Hold & controls — only visible when Allow Control is unlocked
       # ----------------------------------------------------------------
-      - type: entities
-        title: Hold Controls
-        entities:
-          - entity: binary_sensor.abcdesp_hold_active
-            name: Hold Active
-            icon: mdi:hand-back-right
-          - entity: sensor.abcdesp_hold_time_remaining
-            name: Hold Time Remaining
-            icon: mdi:timer-sand
-          - entity: number.abcdesp_hold_duration
-            name: Default Hold Duration
-            icon: mdi:timer-cog
-          - entity: number.abcdesp_set_hold_time
-            name: Adjust Hold Time
-            icon: mdi:timer-edit
-          - entity: button.abcdesp_clear_hold
-            name: Clear Hold
-            icon: mdi:hand-back-right-off
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: lock.abcdesp_allow_control
+            state: unlocked
+        card:
+          type: entities
+          title: Hold Controls
+          entities:
+            - entity: binary_sensor.abcdesp_hold_active
+              name: Hold Active
+              icon: mdi:hand-back-right
+            - entity: sensor.abcdesp_hold_time_remaining
+              name: Hold Time Remaining
+              icon: mdi:timer-sand
+            - entity: number.abcdesp_hold_duration
+              name: Default Hold Duration
+              icon: mdi:timer-cog
+            - entity: number.abcdesp_set_hold_time
+              name: Adjust Hold Time
+              icon: mdi:timer-edit
+            - entity: button.abcdesp_clear_hold
+              name: Clear Hold
+              icon: mdi:hand-back-right-off
 
       # ----------------------------------------------------------------
-      # Vacation configuration — set these before selecting the Vacation
-      # preset on the thermostat card above
+      # Vacation configuration — only visible when Allow Control is
+      # unlocked. Set these before selecting the Away preset above.
       # ----------------------------------------------------------------
-      - type: entities
-        title: Vacation Settings
-        entities:
-          - entity: number.abcdesp_vacation_days
-            name: Vacation Days
-            icon: mdi:calendar-range
-          - entity: number.abcdesp_vacation_min_temp
-            name: Vacation Min Temp
-            icon: mdi:thermometer-low
-          - entity: number.abcdesp_vacation_max_temp
-            name: Vacation Max Temp
-            icon: mdi:thermometer-high
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: lock.abcdesp_allow_control
+            state: unlocked
+        card:
+          type: entities
+          title: Vacation Settings
+          entities:
+            - entity: number.abcdesp_vacation_days
+              name: Vacation Days
+              icon: mdi:calendar-range
+            - entity: number.abcdesp_vacation_min_temp
+              name: Vacation Min Temp
+              icon: mdi:thermometer-low
+            - entity: number.abcdesp_vacation_max_temp
+              name: Vacation Max Temp
+              icon: mdi:thermometer-high
 
       # ----------------------------------------------------------------
       # Safety & communication
