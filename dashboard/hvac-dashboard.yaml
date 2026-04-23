@@ -47,6 +47,19 @@ views:
               - away
 
       # ----------------------------------------------------------------
+      # Mode indicators — replicates thermostat red/blue LEDs
+      #   ● solid = mode enabled, ACTIVE = system running
+      # ----------------------------------------------------------------
+      - type: markdown
+        title: Mode Indicators
+        content: |
+          {% set mode = states('climate.abcdesp_hvac') %}
+          {% set action = state_attr('climate.abcdesp_hvac', 'hvac_action') %}
+          🔴 **Heat:** {% if action == 'heating' %}ACTIVE{% elif mode in ['heat', 'heat_cool'] %}Standby{% else %}Off{% endif %}
+
+          🔵 **Cool:** {% if action == 'cooling' %}ACTIVE{% elif mode in ['cool', 'heat_cool'] %}Standby{% else %}Off{% endif %}
+
+      # ----------------------------------------------------------------
       # Outdoor & indoor conditions — the physical thermostat shows
       # outdoor temp in the top bar and humidity on an alternate screen.
       # This card shows both at a glance.
