@@ -142,6 +142,36 @@ class SetHoldTimeNumber : public number::Number {
 };
 
 // ---------------------------------------------------------------------------
+// Vacation parameter numbers — configure before activating Away preset
+// ---------------------------------------------------------------------------
+class VacationDaysNumber : public number::Number {
+ public:
+  void set_parent(AbcdEspComponent *parent) { parent_ = parent; }
+
+ protected:
+  void control(float value) override;
+  AbcdEspComponent *parent_{nullptr};
+};
+
+class VacationMinTempNumber : public number::Number {
+ public:
+  void set_parent(AbcdEspComponent *parent) { parent_ = parent; }
+
+ protected:
+  void control(float value) override;
+  AbcdEspComponent *parent_{nullptr};
+};
+
+class VacationMaxTempNumber : public number::Number {
+ public:
+  void set_parent(AbcdEspComponent *parent) { parent_ = parent; }
+
+ protected:
+  void control(float value) override;
+  AbcdEspComponent *parent_{nullptr};
+};
+
+// ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
 class AbcdEspComponent : public Component,
@@ -166,6 +196,9 @@ class AbcdEspComponent : public Component,
   void set_hold_duration_minutes(uint16_t minutes) { hold_duration_minutes_ = minutes; }
   void set_hold_duration_number(HoldDurationNumber *n) { hold_duration_number_ = n; }
   void set_set_hold_time_number(SetHoldTimeNumber *n) { set_hold_time_number_ = n; }
+  void set_vacation_days_number(VacationDaysNumber *n) { vacation_days_number_ = n; }
+  void set_vacation_min_temp_number(VacationMinTempNumber *n) { vacation_min_temp_number_ = n; }
+  void set_vacation_max_temp_number(VacationMaxTempNumber *n) { vacation_max_temp_number_ = n; }
 
   // Clear hold — sends a 3B03 write clearing the hold flag
   void clear_hold();
@@ -319,6 +352,11 @@ class AbcdEspComponent : public Component,
   // Runtime hold duration number entities
   HoldDurationNumber *hold_duration_number_{nullptr};
   SetHoldTimeNumber *set_hold_time_number_{nullptr};
+
+  // Vacation parameter number entities
+  VacationDaysNumber *vacation_days_number_{nullptr};
+  VacationMinTempNumber *vacation_min_temp_number_{nullptr};
+  VacationMaxTempNumber *vacation_max_temp_number_{nullptr};
 
   // Publish helpers
   void publish_climate_state();

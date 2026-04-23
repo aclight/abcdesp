@@ -50,6 +50,21 @@ void SetHoldTimeNumber::control(float value) {
 }
 
 // ==========================================================================
+// Vacation parameter numbers — store value for next vacation activation
+// ==========================================================================
+void VacationDaysNumber::control(float value) {
+  publish_state(value);
+}
+
+void VacationMinTempNumber::control(float value) {
+  publish_state(value);
+}
+
+void VacationMaxTempNumber::control(float value) {
+  publish_state(value);
+}
+
+// ==========================================================================
 // Temperature unit conversion helpers
 // ==========================================================================
 static float f_to_c(float f) { return (f - 32.0f) * 5.0f / 9.0f; }
@@ -269,6 +284,16 @@ void AbcdEspComponent::setup() {
     if (std::isnan(hold_duration_number_->state)) {
       hold_duration_number_->publish_state(static_cast<float>(hold_duration_minutes_));
     }
+  }
+  // Initialize vacation number entities with defaults
+  if (vacation_days_number_ != nullptr && std::isnan(vacation_days_number_->state)) {
+    vacation_days_number_->publish_state(7.0f);
+  }
+  if (vacation_min_temp_number_ != nullptr && std::isnan(vacation_min_temp_number_->state)) {
+    vacation_min_temp_number_->publish_state(60.0f);
+  }
+  if (vacation_max_temp_number_ != nullptr && std::isnan(vacation_max_temp_number_->state)) {
+    vacation_max_temp_number_->publish_state(80.0f);
   }
   rx_len_ = 0;
   last_poll_ms_ = millis();
@@ -751,7 +776,31 @@ void AbcdEspComponent::parse_vacation(const uint8_t *data, uint8_t len) {
   bool was_active = vacation_active_;
   vacation_active_ = (data[0] != 0);
 
-  ESP_LOGD(TAG, "3B04: vacation=%s", vacation_active_ ? "active" : "off");
+  // Parse vacation parameters if present (bytes 1-7)
+  if (len >= 8) {
+    uint16_t days_x7 = (data[1] << 8) | data[2];
+    uint8_t vac_days = (days_x7 > 0) ? (days_x7 / 7) : 0;
+    uint8_t vac_min_temp = data[3];
+    uint8_t vac_max_temp = data[4];
+
+    ESP_LOGD(TAG, "3B04: vacation=%s  days=%d  min=%d°F  max=%d°F",
+             vacation_active_ ? "active" : "off", vac_days, vac_min_temp, vac_max_temp);
+
+    // Update number entities with current thermostat values when vacation is active
+    if (vacation_active_) {
+      if (vacation_days_number_ != nullptr) {
+        vacation_days_number_->publish_state(static_cast<float>(vac_days));
+      }
+      if (vacation_min_temp_number_ != nullptr) {
+        vacation_min_temp_number_->publish_state(static_cast<float>(vac_min_temp));
+      }
+      if (vacation_max_temp_number_ != nullptr) {
+        vacation_max_temp_number_->publish_state(static_cast<float>(vac_max_temp));
+      }
+    }
+  } else {
+    ESP_LOGD(TAG, "3B04: vacation=%s", vacation_active_ ? "active" : "off");
+  }
 
   if (!vacation_initialized_ || vacation_active_ != was_active) {
     vacation_initialized_ = true;
@@ -973,20 +1022,35 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
   if (call.get_preset().has_value()) {
     auto preset = *call.get_preset();
     if (preset == climate::CLIMATE_PRESET_AWAY && !vacation_active_) {
-      // Activate vacation with default settings:
-      // 7 days, min 60°F, max 80°F, 15% min humidity, 60% max humidity, fan auto
+      // Read vacation parameters from number entities, falling back to defaults
+      uint8_t vac_days = 7;
+      uint8_t vac_min_temp = 60;
+      uint8_t vac_max_temp = 80;
+
+      if (vacation_days_number_ != nullptr && !std::isnan(vacation_days_number_->state)) {
+        vac_days = static_cast<uint8_t>(vacation_days_number_->state);
+      }
+      if (vacation_min_temp_number_ != nullptr && !std::isnan(vacation_min_temp_number_->state)) {
+        vac_min_temp = static_cast<uint8_t>(vacation_min_temp_number_->state);
+      }
+      if (vacation_max_temp_number_ != nullptr && !std::isnan(vacation_max_temp_number_->state)) {
+        vac_max_temp = static_cast<uint8_t>(vacation_max_temp_number_->state);
+      }
+
+      uint16_t days_x7 = static_cast<uint16_t>(vac_days) * 7;
       uint8_t vac_buf[8];
-      vac_buf[0] = 0x01;  // vacation_active = 1
-      vac_buf[1] = 0x00;  // days*7 high byte (7*7=49)
-      vac_buf[2] = 0x31;  // days*7 low byte (49)
-      vac_buf[3] = 60;    // min temp °F
-      vac_buf[4] = 80;    // max temp °F
-      vac_buf[5] = 15;    // min humidity
-      vac_buf[6] = 60;    // max humidity
+      vac_buf[0] = 0x01;                       // vacation_active = 1
+      vac_buf[1] = (days_x7 >> 8) & 0xFF;      // days*7 high byte
+      vac_buf[2] = days_x7 & 0xFF;             // days*7 low byte
+      vac_buf[3] = vac_min_temp;               // min temp °F
+      vac_buf[4] = vac_max_temp;               // max temp °F
+      vac_buf[5] = 15;                         // min humidity
+      vac_buf[6] = 60;                         // max humidity
       vac_buf[7] = FAN_AUTO;
       send_write_request(ADDR_TSTAT, TBL_SAM_INFO, ROW_SAM_VACATION,
                          vac_buf, 8);
-      ESP_LOGI(TAG, "Activating vacation mode (7 days, 60-80F)");
+      ESP_LOGI(TAG, "Activating vacation mode (%d days, %d-%dF)",
+               vac_days, vac_min_temp, vac_max_temp);
     } else if (preset == climate::CLIMATE_PRESET_HOME && vacation_active_) {
       // Deactivate vacation
       uint8_t vac_buf[8];
@@ -1192,6 +1256,15 @@ void AbcdEspComponent::dump_config() {
   }
   if (set_hold_time_number_ != nullptr) {
     ESP_LOGCONFIG(TAG, "  Set Hold Time Number: configured");
+  }
+  if (vacation_days_number_ != nullptr) {
+    ESP_LOGCONFIG(TAG, "  Vacation Days Number: configured");
+  }
+  if (vacation_min_temp_number_ != nullptr) {
+    ESP_LOGCONFIG(TAG, "  Vacation Min Temp Number: configured");
+  }
+  if (vacation_max_temp_number_ != nullptr) {
+    ESP_LOGCONFIG(TAG, "  Vacation Max Temp Number: configured");
   }
 }
 

@@ -26,6 +26,9 @@ ClearHoldButton = abcdesp_ns.class_("ClearHoldButton", button.Button)
 AllowControlSwitch = abcdesp_ns.class_("AllowControlSwitch", switch.Switch)
 HoldDurationNumber = abcdesp_ns.class_("HoldDurationNumber", number.Number)
 SetHoldTimeNumber = abcdesp_ns.class_("SetHoldTimeNumber", number.Number)
+VacationDaysNumber = abcdesp_ns.class_("VacationDaysNumber", number.Number)
+VacationMinTempNumber = abcdesp_ns.class_("VacationMinTempNumber", number.Number)
+VacationMaxTempNumber = abcdesp_ns.class_("VacationMaxTempNumber", number.Number)
 
 CONF_FLOW_PIN = "flow_pin"
 CONF_OUTDOOR_TEMP_SENSOR = "outdoor_temp_sensor"
@@ -45,6 +48,9 @@ CONF_CLEAR_HOLD_BUTTON = "clear_hold_button"
 CONF_HOLD_DURATION_MINUTES = "hold_duration_minutes"
 CONF_HOLD_DURATION_NUMBER = "hold_duration_number"
 CONF_SET_HOLD_TIME_NUMBER = "set_hold_time_number"
+CONF_VACATION_DAYS_NUMBER = "vacation_days_number"
+CONF_VACATION_MIN_TEMP_NUMBER = "vacation_min_temp_number"
+CONF_VACATION_MAX_TEMP_NUMBER = "vacation_max_temp_number"
 
 CONFIG_SCHEMA = (
     climate.climate_schema(AbcdEspComponent)
@@ -137,6 +143,23 @@ CONFIG_SCHEMA = (
                 icon="mdi:timer-edit",
                 entity_category=ENTITY_CATEGORY_CONFIG,
             ),
+            cv.Optional(CONF_VACATION_DAYS_NUMBER): number.number_schema(
+                VacationDaysNumber,
+                icon="mdi:calendar-range",
+                entity_category=ENTITY_CATEGORY_CONFIG,
+            ),
+            cv.Optional(CONF_VACATION_MIN_TEMP_NUMBER): number.number_schema(
+                VacationMinTempNumber,
+                unit_of_measurement="°F",
+                icon="mdi:thermometer-low",
+                entity_category=ENTITY_CATEGORY_CONFIG,
+            ),
+            cv.Optional(CONF_VACATION_MAX_TEMP_NUMBER): number.number_schema(
+                VacationMaxTempNumber,
+                unit_of_measurement="°F",
+                icon="mdi:thermometer-high",
+                entity_category=ENTITY_CATEGORY_CONFIG,
+            ),
         }
     )
     .extend(uart.UART_DEVICE_SCHEMA)
@@ -227,5 +250,35 @@ async def to_code(config):
         )
         cg.add(num.set_parent(var))
         cg.add(var.set_set_hold_time_number(num))
+
+    if CONF_VACATION_DAYS_NUMBER in config:
+        num = await number.new_number(
+            config[CONF_VACATION_DAYS_NUMBER],
+            min_value=1,
+            max_value=30,
+            step=1,
+        )
+        cg.add(num.set_parent(var))
+        cg.add(var.set_vacation_days_number(num))
+
+    if CONF_VACATION_MIN_TEMP_NUMBER in config:
+        num = await number.new_number(
+            config[CONF_VACATION_MIN_TEMP_NUMBER],
+            min_value=40,
+            max_value=99,
+            step=1,
+        )
+        cg.add(num.set_parent(var))
+        cg.add(var.set_vacation_min_temp_number(num))
+
+    if CONF_VACATION_MAX_TEMP_NUMBER in config:
+        num = await number.new_number(
+            config[CONF_VACATION_MAX_TEMP_NUMBER],
+            min_value=40,
+            max_value=99,
+            step=1,
+        )
+        cg.add(num.set_parent(var))
+        cg.add(var.set_vacation_max_temp_number(num))
 
     cg.add(var.set_hold_duration_minutes(config[CONF_HOLD_DURATION_MINUTES]))
