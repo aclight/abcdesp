@@ -60,7 +60,7 @@ abcdesp:
   icon: "mdi:hvac"
   uart_id: abcdesp_uart
   hold_duration_minutes: 120  # 0 = permanent hold (default)
-  allow_control_switch:
+  allow_control_lock:
     name: "Allow Control"
   outdoor_temp_sensor:
     name: "Outdoor Temperature"
@@ -98,6 +98,8 @@ abcdesp:
     name: "Vacation Min Temp"
   vacation_max_temp_number:
     name: "Vacation Max Temp"
+  last_seen_sensor:
+    name: "Last Seen"
 
 # ----------------------------------------------------------------
 # Diagnostics

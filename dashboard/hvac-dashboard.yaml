@@ -44,7 +44,6 @@ views:
               - high
           - type: climate-preset-modes
             preset_modes:
-              - home
               - away
 
       # ----------------------------------------------------------------
@@ -109,7 +108,7 @@ views:
             icon: mdi:hand-back-right-off
 
       # ----------------------------------------------------------------
-      # Vacation configuration — set these before selecting the Away
+      # Vacation configuration — set these before selecting the Vacation
       # preset on the thermostat card above
       # ----------------------------------------------------------------
       - type: entities
@@ -131,9 +130,17 @@ views:
       - type: entities
         title: Safety & Communication
         entities:
-          - entity: switch.abcdesp_allow_control
+          - type: custom:hui-entity-card
+            entity: lock.abcdesp_allow_control
             name: Allow Control
-            icon: mdi:shield-lock-outline
+            icon: mdi:shield-lock
+            tap_action:
+              action: toggle
+              confirmation:
+                text: "Are you sure you want to change the Allow Control lock?"
           - entity: binary_sensor.abcdesp_communication_ok
             name: Communication
             icon: mdi:lan-connect
+          - entity: sensor.abcdesp_last_seen
+            name: Last Seen
+            icon: mdi:clock-check-outline

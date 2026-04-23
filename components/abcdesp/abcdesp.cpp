@@ -53,14 +53,26 @@ void SetHoldTimeNumber::control(float value) {
 // Vacation parameter numbers — store value for next vacation activation
 // ==========================================================================
 void VacationDaysNumber::control(float value) {
+  if (parent_ != nullptr && !parent_->is_control_allowed()) {
+    ESP_LOGW(TAG, "Vacation Days change blocked: Allow Control is locked");
+    return;
+  }
   publish_state(value);
 }
 
 void VacationMinTempNumber::control(float value) {
+  if (parent_ != nullptr && !parent_->is_control_allowed()) {
+    ESP_LOGW(TAG, "Vacation Min Temp change blocked: Allow Control is locked");
+    return;
+  }
   publish_state(value);
 }
 
 void VacationMaxTempNumber::control(float value) {
+  if (parent_ != nullptr && !parent_->is_control_allowed()) {
+    ESP_LOGW(TAG, "Vacation Max Temp change blocked: Allow Control is locked");
+    return;
+  }
   publish_state(value);
 }
 
@@ -274,9 +286,9 @@ void AbcdEspComponent::setup() {
     flow_pin_->setup();
     flow_pin_->digital_write(false);  // start in RX mode
   }
-  // Initialize Allow Control switch to OFF (control blocked until user enables)
-  if (allow_control_switch_ != nullptr) {
-    allow_control_switch_->publish_state(false);
+  // Initialize Allow Control lock to LOCKED (control blocked until user unlocks)
+  if (allow_control_lock_ != nullptr) {
+    allow_control_lock_->publish_state(lock::LOCK_STATE_LOCKED);
   }
   // Restore hold duration number from flash, or initialize from compile-time config
   if (hold_duration_number_ != nullptr) {
@@ -391,6 +403,12 @@ void AbcdEspComponent::loop() {
       (now - last_poll_ms_ >= POLL_INTERVAL_MS)) {
     poll_thermostat();
     last_poll_ms_ = now;
+
+    // Update last-seen sensor every poll cycle
+    if (last_seen_sensor_ != nullptr && last_successful_response_ms_ > 0) {
+      last_seen_sensor_->publish_state(
+          static_cast<float>(now - last_successful_response_ms_) / 1000.0f);
+    }
   }
 
   // --- Auto-clear temporary hold ---
@@ -410,8 +428,8 @@ void AbcdEspComponent::loop() {
   if (write_pending_ && !awaiting_response_ &&
       (now - last_send_ms_ >= MIN_FRAME_GAP_MS)) {
     // Re-check Allow Control in case it was toggled off after queuing
-    if (allow_control_switch_ == nullptr || !allow_control_switch_->state) {
-      ESP_LOGW(TAG, "Pending write discarded — Allow Control switched OFF after queuing");
+    if (allow_control_lock_ == nullptr || !is_control_allowed()) {
+      ESP_LOGW(TAG, "Pending write discarded — Allow Control locked after queuing");
       write_pending_ = false;
     } else {
       send_write_request(ADDR_TSTAT, TBL_SAM_INFO, ROW_SAM_ZONES,
@@ -835,7 +853,6 @@ climate::ClimateTraits AbcdEspComponent::traits() {
   });
 
   traits.set_supported_presets({
-      climate::CLIMATE_PRESET_HOME,
       climate::CLIMATE_PRESET_AWAY,
   });
 
@@ -843,12 +860,20 @@ climate::ClimateTraits AbcdEspComponent::traits() {
 }
 
 // ==========================================================================
+// Allow Control helper
+// ==========================================================================
+bool AbcdEspComponent::is_control_allowed() const {
+  return allow_control_lock_ != nullptr &&
+         allow_control_lock_->state == lock::LOCK_STATE_UNLOCKED;
+}
+
+// ==========================================================================
 // Climate control — handle HA calls to change mode/setpoint/fan
 // ==========================================================================
 void AbcdEspComponent::control(const climate::ClimateCall &call) {
-  // Block control when Allow Control switch is off (or not configured)
-  if (allow_control_switch_ == nullptr || !allow_control_switch_->state) {
-    ESP_LOGW(TAG, "Control blocked: Allow Control switch is OFF");
+  // Block control when Allow Control lock is locked (or not configured)
+  if (!is_control_allowed()) {
+    ESP_LOGW(TAG, "Control blocked: Allow Control is locked");
     return;
   }
 
@@ -1051,7 +1076,7 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
                          vac_buf, 8);
       ESP_LOGI(TAG, "Activating vacation mode (%d days, %d-%dF)",
                vac_days, vac_min_temp, vac_max_temp);
-    } else if (preset == climate::CLIMATE_PRESET_HOME && vacation_active_) {
+    } else if (preset == climate::CLIMATE_PRESET_AWAY && vacation_active_) {
       // Deactivate vacation
       uint8_t vac_buf[8];
       memset(vac_buf, 0, sizeof(vac_buf));
@@ -1150,10 +1175,11 @@ void AbcdEspComponent::publish_climate_state() {
     this->action = climate::CLIMATE_ACTION_IDLE;
   }
 
-  // Preset
-  if (vacation_initialized_) {
-    this->preset = vacation_active_ ? climate::CLIMATE_PRESET_AWAY
-                                    : climate::CLIMATE_PRESET_HOME;
+  // Preset — only show Away when vacation is active
+  if (vacation_initialized_ && vacation_active_) {
+    this->preset = climate::CLIMATE_PRESET_AWAY;
+  } else {
+    this->preset.reset();
   }
 
   this->publish_state();
@@ -1246,10 +1272,10 @@ void AbcdEspComponent::dump_config() {
   if (clear_hold_button_ != nullptr) {
     ESP_LOGCONFIG(TAG, "  Clear Hold Button: configured");
   }
-  if (allow_control_switch_ != nullptr) {
-    ESP_LOGCONFIG(TAG, "  Allow Control Switch: configured");
+  if (allow_control_lock_ != nullptr) {
+    ESP_LOGCONFIG(TAG, "  Allow Control Lock: configured");
   } else {
-    ESP_LOGCONFIG(TAG, "  Allow Control Switch: not configured (read-only)");
+    ESP_LOGCONFIG(TAG, "  Allow Control Lock: not configured (read-only)");
   }
   if (hold_duration_number_ != nullptr) {
     ESP_LOGCONFIG(TAG, "  Hold Duration Number: configured");
@@ -1266,14 +1292,17 @@ void AbcdEspComponent::dump_config() {
   if (vacation_max_temp_number_ != nullptr) {
     ESP_LOGCONFIG(TAG, "  Vacation Max Temp Number: configured");
   }
+  if (last_seen_sensor_ != nullptr) {
+    ESP_LOGCONFIG(TAG, "  Last Seen Sensor: configured");
+  }
 }
 
 // ==========================================================================
 // Adjust hold — change remaining time on an active hold (or make permanent)
 // ==========================================================================
 void AbcdEspComponent::adjust_hold(uint16_t minutes) {
-  if (allow_control_switch_ == nullptr || !allow_control_switch_->state) {
-    ESP_LOGW(TAG, "Adjust hold blocked: Allow Control switch is OFF");
+  if (!is_control_allowed()) {
+    ESP_LOGW(TAG, "Adjust hold blocked: Allow Control is locked");
     return;
   }
 
@@ -1319,8 +1348,8 @@ void AbcdEspComponent::adjust_hold(uint16_t minutes) {
 // Clear hold — send 3B03 write clearing the hold flag for zone 1
 // ==========================================================================
 void AbcdEspComponent::clear_hold() {
-  if (allow_control_switch_ == nullptr || !allow_control_switch_->state) {
-    ESP_LOGW(TAG, "Clear hold blocked: Allow Control switch is OFF");
+  if (!is_control_allowed()) {
+    ESP_LOGW(TAG, "Clear hold blocked: Allow Control is locked");
     return;
   }
 
