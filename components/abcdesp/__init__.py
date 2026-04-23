@@ -23,6 +23,8 @@ AbcdEspComponent = abcdesp_ns.class_(
     "AbcdEspComponent", cg.Component, climate.Climate, uart.UARTDevice
 )
 ClearHoldButton = abcdesp_ns.class_("ClearHoldButton", button.Button)
+ActivateVacationButton = abcdesp_ns.class_("ActivateVacationButton", button.Button)
+CancelVacationButton = abcdesp_ns.class_("CancelVacationButton", button.Button)
 AllowControlLock = abcdesp_ns.class_("AllowControlLock", lock.Lock)
 HoldDurationNumber = abcdesp_ns.class_("HoldDurationNumber", number.Number)
 SetHoldTimeNumber = abcdesp_ns.class_("SetHoldTimeNumber", number.Number)
@@ -51,6 +53,8 @@ CONF_SET_HOLD_TIME_NUMBER = "set_hold_time_number"
 CONF_VACATION_DAYS_NUMBER = "vacation_days_number"
 CONF_VACATION_MIN_TEMP_NUMBER = "vacation_min_temp_number"
 CONF_VACATION_MAX_TEMP_NUMBER = "vacation_max_temp_number"
+CONF_ACTIVATE_VACATION_BUTTON = "activate_vacation_button"
+CONF_CANCEL_VACATION_BUTTON = "cancel_vacation_button"
 CONF_LAST_SEEN_SENSOR = "last_seen_sensor"
 
 CONFIG_SCHEMA = (
@@ -159,6 +163,16 @@ CONFIG_SCHEMA = (
                 VacationMaxTempNumber,
                 unit_of_measurement="°F",
                 icon="mdi:thermometer-high",
+                entity_category=ENTITY_CATEGORY_CONFIG,
+            ),
+            cv.Optional(CONF_ACTIVATE_VACATION_BUTTON): button.button_schema(
+                ActivateVacationButton,
+                icon="mdi:airplane-takeoff",
+                entity_category=ENTITY_CATEGORY_CONFIG,
+            ),
+            cv.Optional(CONF_CANCEL_VACATION_BUTTON): button.button_schema(
+                CancelVacationButton,
+                icon="mdi:airplane-off",
                 entity_category=ENTITY_CATEGORY_CONFIG,
             ),
             cv.Optional(CONF_LAST_SEEN_SENSOR): sensor.sensor_schema(
@@ -289,6 +303,16 @@ async def to_code(config):
         )
         cg.add(num.set_parent(var))
         cg.add(var.set_vacation_max_temp_number(num))
+
+    if CONF_ACTIVATE_VACATION_BUTTON in config:
+        btn = await button.new_button(config[CONF_ACTIVATE_VACATION_BUTTON])
+        cg.add(btn.set_parent(var))
+        cg.add(var.set_activate_vacation_button(btn))
+
+    if CONF_CANCEL_VACATION_BUTTON in config:
+        btn = await button.new_button(config[CONF_CANCEL_VACATION_BUTTON])
+        cg.add(btn.set_parent(var))
+        cg.add(var.set_cancel_vacation_button(btn))
 
     cg.add(var.set_hold_duration_minutes(config[CONF_HOLD_DURATION_MINUTES]))
 

@@ -108,6 +108,30 @@ class ClearHoldButton : public button::Button {
 };
 
 // ---------------------------------------------------------------------------
+// Activate Vacation button
+// ---------------------------------------------------------------------------
+class ActivateVacationButton : public button::Button {
+ public:
+  void set_parent(AbcdEspComponent *parent) { parent_ = parent; }
+
+ protected:
+  void press_action() override;
+  AbcdEspComponent *parent_{nullptr};
+};
+
+// ---------------------------------------------------------------------------
+// Cancel Vacation button
+// ---------------------------------------------------------------------------
+class CancelVacationButton : public button::Button {
+ public:
+  void set_parent(AbcdEspComponent *parent) { parent_ = parent; }
+
+ protected:
+  void press_action() override;
+  AbcdEspComponent *parent_{nullptr};
+};
+
+// ---------------------------------------------------------------------------
 // Allow Control lock — must explicitly unlock to enable HVAC writes
 // ---------------------------------------------------------------------------
 class AllowControlLock : public lock::Lock {
@@ -204,6 +228,8 @@ class AbcdEspComponent : public Component,
   void set_vacation_days_number(VacationDaysNumber *n) { vacation_days_number_ = n; }
   void set_vacation_min_temp_number(VacationMinTempNumber *n) { vacation_min_temp_number_ = n; }
   void set_vacation_max_temp_number(VacationMaxTempNumber *n) { vacation_max_temp_number_ = n; }
+  void set_activate_vacation_button(ActivateVacationButton *b) { activate_vacation_button_ = b; }
+  void set_cancel_vacation_button(CancelVacationButton *b) { cancel_vacation_button_ = b; }
   void set_last_seen_sensor(sensor::Sensor *s) { last_seen_sensor_ = s; }
 
   // Returns true when the Allow Control lock is unlocked
@@ -211,6 +237,10 @@ class AbcdEspComponent : public Component,
 
   // Clear hold — sends a 3B03 write clearing the hold flag
   void clear_hold();
+
+  // Vacation control
+  void activate_vacation();
+  void cancel_vacation();
 
   // Adjust hold — change remaining time on an active hold
   void adjust_hold(uint16_t minutes);
@@ -357,6 +387,10 @@ class AbcdEspComponent : public Component,
 
   // Clear hold button
   ClearHoldButton *clear_hold_button_{nullptr};
+
+  // Vacation buttons
+  ActivateVacationButton *activate_vacation_button_{nullptr};
+  CancelVacationButton *cancel_vacation_button_{nullptr};
 
   // Runtime hold duration number entities
   HoldDurationNumber *hold_duration_number_{nullptr};

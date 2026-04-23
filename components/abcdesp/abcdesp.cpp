@@ -17,6 +17,18 @@ void ClearHoldButton::press_action() {
   }
 }
 
+void ActivateVacationButton::press_action() {
+  if (parent_ != nullptr) {
+    parent_->activate_vacation();
+  }
+}
+
+void CancelVacationButton::press_action() {
+  if (parent_ != nullptr) {
+    parent_->cancel_vacation();
+  }
+}
+
 // ==========================================================================
 // HoldDurationNumber — update default hold duration at runtime
 // ==========================================================================
@@ -852,9 +864,8 @@ climate::ClimateTraits AbcdEspComponent::traits() {
       climate::CLIMATE_FAN_HIGH,
   });
 
-  traits.set_supported_presets({
-      climate::CLIMATE_PRESET_AWAY,
-  });
+  // No presets declared — Away is set dynamically only when vacation is active.
+  // This prevents the thermostat card from always showing an "Away" button.
 
   return traits;
 }
@@ -1042,50 +1053,6 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
 
   // Note: state is NOT optimistically updated here.
   // The next poll of 3B02/3B03 will confirm the thermostat accepted the change.
-
-  // Handle preset change (vacation via 3B04)
-  if (call.get_preset().has_value()) {
-    auto preset = *call.get_preset();
-    if (preset == climate::CLIMATE_PRESET_AWAY && !vacation_active_) {
-      // Read vacation parameters from number entities, falling back to defaults
-      uint8_t vac_days = 7;
-      uint8_t vac_min_temp = 60;
-      uint8_t vac_max_temp = 80;
-
-      if (vacation_days_number_ != nullptr && !std::isnan(vacation_days_number_->state)) {
-        vac_days = static_cast<uint8_t>(vacation_days_number_->state);
-      }
-      if (vacation_min_temp_number_ != nullptr && !std::isnan(vacation_min_temp_number_->state)) {
-        vac_min_temp = static_cast<uint8_t>(vacation_min_temp_number_->state);
-      }
-      if (vacation_max_temp_number_ != nullptr && !std::isnan(vacation_max_temp_number_->state)) {
-        vac_max_temp = static_cast<uint8_t>(vacation_max_temp_number_->state);
-      }
-
-      uint16_t days_x7 = static_cast<uint16_t>(vac_days) * 7;
-      uint8_t vac_buf[8];
-      vac_buf[0] = 0x01;                       // vacation_active = 1
-      vac_buf[1] = (days_x7 >> 8) & 0xFF;      // days*7 high byte
-      vac_buf[2] = days_x7 & 0xFF;             // days*7 low byte
-      vac_buf[3] = vac_min_temp;               // min temp °F
-      vac_buf[4] = vac_max_temp;               // max temp °F
-      vac_buf[5] = 15;                         // min humidity
-      vac_buf[6] = 60;                         // max humidity
-      vac_buf[7] = FAN_AUTO;
-      send_write_request(ADDR_TSTAT, TBL_SAM_INFO, ROW_SAM_VACATION,
-                         vac_buf, 8);
-      ESP_LOGI(TAG, "Activating vacation mode (%d days, %d-%dF)",
-               vac_days, vac_min_temp, vac_max_temp);
-    } else if (preset == climate::CLIMATE_PRESET_AWAY && vacation_active_) {
-      // Deactivate vacation
-      uint8_t vac_buf[8];
-      memset(vac_buf, 0, sizeof(vac_buf));
-      vac_buf[0] = 0x00;  // vacation_active = 0
-      send_write_request(ADDR_TSTAT, TBL_SAM_INFO, ROW_SAM_VACATION,
-                         vac_buf, 8);
-      ESP_LOGI(TAG, "Deactivating vacation mode");
-    }
-  }
 }
 
 // ==========================================================================
@@ -1372,6 +1339,73 @@ void AbcdEspComponent::clear_hold() {
   hold_set_ms_ = 0;  // cancel any pending ESP-managed auto-clear
 
   ESP_LOGI(TAG, "Queued clear hold for zone 1");
+}
+
+// ==========================================================================
+// Activate vacation — reads days/min/max from number entities, sends 3B04
+// ==========================================================================
+void AbcdEspComponent::activate_vacation() {
+  if (!is_control_allowed()) {
+    ESP_LOGW(TAG, "Activate vacation blocked: Allow Control is locked");
+    return;
+  }
+
+  if (vacation_active_) {
+    ESP_LOGW(TAG, "Vacation is already active");
+    return;
+  }
+
+  // Read vacation parameters from number entities, falling back to defaults
+  uint8_t vac_days = 7;
+  uint8_t vac_min_temp = 60;
+  uint8_t vac_max_temp = 80;
+
+  if (vacation_days_number_ != nullptr && !std::isnan(vacation_days_number_->state)) {
+    vac_days = static_cast<uint8_t>(vacation_days_number_->state);
+  }
+  if (vacation_min_temp_number_ != nullptr && !std::isnan(vacation_min_temp_number_->state)) {
+    vac_min_temp = static_cast<uint8_t>(vacation_min_temp_number_->state);
+  }
+  if (vacation_max_temp_number_ != nullptr && !std::isnan(vacation_max_temp_number_->state)) {
+    vac_max_temp = static_cast<uint8_t>(vacation_max_temp_number_->state);
+  }
+
+  uint16_t days_x7 = static_cast<uint16_t>(vac_days) * 7;
+  uint8_t vac_buf[8];
+  vac_buf[0] = 0x01;                       // vacation_active = 1
+  vac_buf[1] = (days_x7 >> 8) & 0xFF;      // days*7 high byte
+  vac_buf[2] = days_x7 & 0xFF;             // days*7 low byte
+  vac_buf[3] = vac_min_temp;               // min temp °F
+  vac_buf[4] = vac_max_temp;               // max temp °F
+  vac_buf[5] = 15;                         // min humidity
+  vac_buf[6] = 60;                         // max humidity
+  vac_buf[7] = FAN_AUTO;
+  send_write_request(ADDR_TSTAT, TBL_SAM_INFO, ROW_SAM_VACATION,
+                     vac_buf, 8);
+  ESP_LOGI(TAG, "Activating vacation mode (%d days, %d-%dF)",
+           vac_days, vac_min_temp, vac_max_temp);
+}
+
+// ==========================================================================
+// Cancel vacation — sends 3B04 with vacation_active = 0
+// ==========================================================================
+void AbcdEspComponent::cancel_vacation() {
+  if (!is_control_allowed()) {
+    ESP_LOGW(TAG, "Cancel vacation blocked: Allow Control is locked");
+    return;
+  }
+
+  if (!vacation_active_) {
+    ESP_LOGW(TAG, "Vacation is not active");
+    return;
+  }
+
+  uint8_t vac_buf[8];
+  memset(vac_buf, 0, sizeof(vac_buf));
+  vac_buf[0] = 0x00;  // vacation_active = 0
+  send_write_request(ADDR_TSTAT, TBL_SAM_INFO, ROW_SAM_VACATION,
+                     vac_buf, 8);
+  ESP_LOGI(TAG, "Deactivating vacation mode");
 }
 
 }  // namespace abcdesp

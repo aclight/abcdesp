@@ -99,6 +99,10 @@ abcdesp:
     name: "Vacation Min Temp"
   vacation_max_temp_number:
     name: "Vacation Max Temp"
+  activate_vacation_button:
+    name: "Activate Vacation"
+  cancel_vacation_button:
+    name: "Cancel Vacation"
   last_seen_sensor:
     name: "Last Seen"
 
