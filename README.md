@@ -161,14 +161,35 @@ Each device will appear as a separate ESPHome integration in Home Assistant with
 A ready-to-use Home Assistant dashboard is included in `dashboard/hvac-dashboard.yaml`. It uses only built-in HA cards (no HACS or custom cards required) and shows:
 
 - **Thermostat card** — ring dial with current temperature, setpoints, mode, fan, and preset controls
+- **Mode indicators** — replicates the thermostat's red/blue LED status (Off / Standby / Active)
 - **Conditions** — outdoor temperature, indoor humidity, and HP coil temperature at a glance
 - **System status** — blower, heat stage, HP stage, airflow CFM
-- **Controls** — hold status, clear hold, allow control, communication health
+- **Controls** — hold status, clear hold, vacation settings, allow control, communication health
 
-To use it:
+### Option 1: Paste into the UI (simplest)
 
 1. In Home Assistant, go to **Settings → Dashboards → Add Dashboard**
-2. Create a new dashboard, open it, and switch to YAML mode (three-dot menu → Raw configuration editor)
-3. Paste the contents of `dashboard/hvac-dashboard.yaml`
+2. Give it a name (e.g. "HVAC") and click **Create**
+3. Open the new dashboard, click the **⋮** menu (top right) → **Edit Dashboard**
+4. Click **⋮** again → **Raw configuration editor**
+5. Paste the contents of `dashboard/hvac-dashboard.yaml` and click **Save**
+
+### Option 2: YAML-managed dashboard
+
+If you prefer to manage your dashboard as a file, add this to your Home Assistant `configuration.yaml`:
+
+```yaml
+lovelace:
+  mode: storage
+  dashboards:
+    hvac:
+      mode: yaml
+      title: HVAC
+      icon: mdi:hvac
+      show_in_sidebar: true
+      filename: dashboards/hvac-dashboard.yaml
+```
+
+Then copy `dashboard/hvac-dashboard.yaml` from this repository into a `dashboards/` folder inside your HA config directory. Restart Home Assistant to pick up the new dashboard.
 
 Entity IDs assume `esphome.name: abcdesp`. If you changed your device name, find/replace `abcdesp_` with your device name + underscore.
