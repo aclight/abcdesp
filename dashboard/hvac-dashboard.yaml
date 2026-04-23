@@ -42,9 +42,7 @@ views:
               - low
               - medium
               - high
-          - type: climate-preset-modes
-            preset_modes:
-              - away
+
 
       # ----------------------------------------------------------------
       # Outdoor & indoor conditions — the physical thermostat shows
@@ -115,7 +113,7 @@ views:
 
       # ----------------------------------------------------------------
       # Vacation configuration — only visible when Allow Control is
-      # unlocked. Set these before selecting the Away preset above.
+      # unlocked. Set days and temps, then press Activate Vacation.
       # ----------------------------------------------------------------
       - type: conditional
         conditions:
@@ -135,6 +133,12 @@ views:
             - entity: number.abcdesp_vacation_max_temp
               name: Vacation Max Temp
               icon: mdi:thermometer-high
+            - entity: button.abcdesp_activate_vacation
+              name: Activate Vacation
+              icon: mdi:airplane-takeoff
+            - entity: button.abcdesp_cancel_vacation
+              name: Cancel Vacation
+              icon: mdi:airplane-off
 
       # ----------------------------------------------------------------
       # Safety & communication
