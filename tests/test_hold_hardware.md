@@ -1,19 +1,25 @@
 # Hardware Testing Plan — Runtime Hold Duration
 
-These tests **must be run on real Carrier Infinity equipment** after merging to verify correct behavior.
+These tests **must be run on real Carrier Infinity equipment** to verify hold duration behavior.
 The HVAC bus is sensitive to incorrect writes — monitor the thermostat display and ESPHome logs closely.
+
+> **How to use this file:** Copy into a GitHub Issue (checkboxes become interactive) or edit directly.
+> Mark each test PASS or FAIL, and fill in the Actual / Notes field with observations.
+> If any test fails, paste the filled-in section back to Copilot for diagnosis.
 
 ## Prerequisites
 
-- ESP32 connected to Carrier Infinity bus and communicating (Comms OK = true)
-- Allow Control switch: ON
-- System in heat or cool mode (not off)
-- ESPHome logs visible at DEBUG level
-- Home Assistant dashboard open showing the climate entity
+- [ ] ESP32 connected to Carrier Infinity bus and communicating (Comms OK = true)
+- [ ] Allow Control switch: ON
+- [ ] System in heat or cool mode (not off)
+- [ ] ESPHome logs visible at DEBUG level
+- [ ] Home Assistant dashboard open showing the climate entity
+
+**Firmware version:** _______________
+**Date tested:** _______________
+**Tester:** _______________
 
 ---
-
-## Test Cases
 
 ### 1. Setpoint change with hold_duration_number configured
 
@@ -28,6 +34,15 @@ The HVAC bus is sensitive to incorrect writes — monitor the thermostat display
 - Thermostat display shows timed hold with ~120 minutes
 - Log: "Setting native timed hold for 120 minutes"
 
+**Hold Time Remaining observed:** ___ min
+
+**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+
+**Actual / Notes:**
+> &nbsp;
+
+---
+
 ### 2. Adjust active hold time via Set Hold Time number
 
 **Steps:**
@@ -39,6 +54,15 @@ The HVAC bus is sensitive to incorrect writes — monitor the thermostat display
 - Hold Time Remaining updates to ≈ 60 min
 - Thermostat display shows updated countdown
 - Log: "Adjusting hold to 60 minutes"
+
+**Hold Time Remaining observed:** ___ min
+
+**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+
+**Actual / Notes:**
+> &nbsp;
+
+---
 
 ### 3. Make active hold permanent via Set Hold Time
 
@@ -52,6 +76,13 @@ The HVAC bus is sensitive to incorrect writes — monitor the thermostat display
 - Thermostat display shows permanent hold (no countdown)
 - Log: "Adjusting hold to permanent"
 
+**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+
+**Actual / Notes:**
+> &nbsp;
+
+---
+
 ### 4. Adjust hold blocked when no hold active
 
 **Steps:**
@@ -64,6 +95,13 @@ The HVAC bus is sensitive to incorrect writes — monitor the thermostat display
 - Log: "Adjust hold blocked: no active hold on zone 1"
 - Thermostat display unchanged
 
+**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+
+**Actual / Notes:**
+> &nbsp;
+
+---
+
 ### 5. Adjust hold blocked when Allow Control is OFF
 
 **Steps:**
@@ -75,6 +113,13 @@ The HVAC bus is sensitive to incorrect writes — monitor the thermostat display
 - No write sent to the bus
 - Log: "Adjust hold blocked: Allow Control switch is OFF"
 
+**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+
+**Actual / Notes:**
+> &nbsp;
+
+---
+
 ### 6. Change default duration and verify next setpoint change uses it
 
 **Steps:**
@@ -84,6 +129,15 @@ The HVAC bus is sensitive to incorrect writes — monitor the thermostat display
 **Expected:**
 - New hold has ≈ 30 min countdown
 - Log: "Setting native timed hold for 30 minutes"
+
+**Hold Time Remaining observed:** ___ min
+
+**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+
+**Actual / Notes:**
+> &nbsp;
+
+---
 
 ### 7. Set Hold Duration to 0 (permanent) and change setpoint
 
@@ -96,17 +150,35 @@ The HVAC bus is sensitive to incorrect writes — monitor the thermostat display
 - Hold Time Remaining stays 0
 - Thermostat display shows permanent hold
 
+**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+
+**Actual / Notes:**
+> &nbsp;
+
+---
+
 ### 8. Reboot persistence of Hold Duration
 
 **Steps:**
 1. Set Hold Duration number to 45
-2. Reboot the ESP32 (HA → Developer Tools → Services → esphome.abcdesp_restart)
+2. Reboot the ESP32 (HA → Developer Tools → Services → `esphome.abcdesp_restart`)
 3. After reconnect, check Hold Duration number value
 
 **Expected:**
-- Hold Duration number restores to 45 (restore_value: true)
+- Hold Duration number restores to 45
+
+**Hold Duration after reboot:** ___
+
+**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+
+**Actual / Notes:**
+> &nbsp;
+
+---
 
 ### 9. Backward compatibility — no number entities configured
+
+- [ ] **Skipped** (requires YAML change and reflash)
 
 **Steps:**
 1. Remove `hold_duration_number` and `set_hold_time_number` from YAML
@@ -114,9 +186,16 @@ The HVAC bus is sensitive to incorrect writes — monitor the thermostat display
 3. Flash and change a setpoint
 
 **Expected:**
-- Behavior identical to before this PR
+- Behavior identical to before this feature
 - Timed hold uses compile-time 120 minute value
 - No errors in logs about missing entities
+
+**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+
+**Actual / Notes:**
+> &nbsp;
+
+---
 
 ### 10. Hold expiry via ESP fallback timer
 
@@ -130,11 +209,34 @@ The HVAC bus is sensitive to incorrect writes — monitor the thermostat display
 - Hold Active → OFF
 - Log: "Temporary hold expired after 2 minutes — clearing"
 
+**Time until hold cleared:** ___ min
+
+**Result:** &ensp; - [ ] PASS &ensp; - [ ] FAIL
+
+**Actual / Notes:**
+> &nbsp;
+
 ---
+
+## Summary
+
+| Test | Description | Result |
+|------|-------------|--------|
+| 1 | Setpoint with hold duration | |
+| 2 | Adjust active hold time | |
+| 3 | Convert to permanent hold | |
+| 4 | Adjust blocked (no hold) | |
+| 5 | Adjust blocked (Allow Control OFF) | |
+| 6 | Change default duration | |
+| 7 | Permanent hold (duration = 0) | |
+| 8 | Reboot persistence | |
+| 9 | Backward compatibility | |
+| 10 | Hold expiry timer | |
+| **TOTAL** | **10 tests** | |
 
 ## Failure Criteria
 
-If any of the following occur, **do not merge**:
+If any of the following occur, **stop testing and investigate**:
 - Thermostat shows error codes or enters fault state
 - HVAC system starts/stops unexpectedly
 - NAK responses to adjust_hold writes (check logs)
