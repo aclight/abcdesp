@@ -1,6 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import climate, sensor, text_sensor, binary_sensor, switch, button, number, uart
+from esphome.components import climate, sensor, text_sensor, binary_sensor, lock, button, number, uart
 from esphome.const import (
     DEVICE_CLASS_HUMIDITY,
     DEVICE_CLASS_RUNNING,
@@ -16,14 +16,14 @@ from esphome.const import (
 from esphome import pins
 
 DEPENDENCIES = ["uart"]
-AUTO_LOAD = ["climate", "sensor", "text_sensor", "binary_sensor", "switch", "button", "number"]
+AUTO_LOAD = ["climate", "sensor", "text_sensor", "binary_sensor", "lock", "button", "number"]
 
 abcdesp_ns = cg.esphome_ns.namespace("abcdesp")
 AbcdEspComponent = abcdesp_ns.class_(
     "AbcdEspComponent", cg.Component, climate.Climate, uart.UARTDevice
 )
 ClearHoldButton = abcdesp_ns.class_("ClearHoldButton", button.Button)
-AllowControlSwitch = abcdesp_ns.class_("AllowControlSwitch", switch.Switch)
+AllowControlLock = abcdesp_ns.class_("AllowControlLock", lock.Lock)
 HoldDurationNumber = abcdesp_ns.class_("HoldDurationNumber", number.Number)
 SetHoldTimeNumber = abcdesp_ns.class_("SetHoldTimeNumber", number.Number)
 VacationDaysNumber = abcdesp_ns.class_("VacationDaysNumber", number.Number)
@@ -36,7 +36,7 @@ CONF_AIRFLOW_CFM_SENSOR = "airflow_cfm_sensor"
 CONF_BLOWER_SENSOR = "blower_sensor"
 CONF_HEAT_STAGE_SENSOR = "heat_stage_sensor"
 CONF_HEAT_STAGE_TEXT_SENSOR = "heat_stage_text_sensor"
-CONF_ALLOW_CONTROL_SWITCH = "allow_control_switch"
+CONF_ALLOW_CONTROL_LOCK = "allow_control_lock"
 CONF_INDOOR_HUMIDITY_SENSOR = "indoor_humidity_sensor"
 CONF_HP_COIL_TEMP_SENSOR = "hp_coil_temp_sensor"
 CONF_HP_STAGE_SENSOR = "hp_stage_sensor"
@@ -51,6 +51,7 @@ CONF_SET_HOLD_TIME_NUMBER = "set_hold_time_number"
 CONF_VACATION_DAYS_NUMBER = "vacation_days_number"
 CONF_VACATION_MIN_TEMP_NUMBER = "vacation_min_temp_number"
 CONF_VACATION_MAX_TEMP_NUMBER = "vacation_max_temp_number"
+CONF_LAST_SEEN_SENSOR = "last_seen_sensor"
 
 CONFIG_SCHEMA = (
     climate.climate_schema(AbcdEspComponent)
@@ -125,9 +126,9 @@ CONFIG_SCHEMA = (
                 icon="mdi:hand-back-left-off",
                 entity_category=ENTITY_CATEGORY_CONFIG,
             ),
-            cv.Optional(CONF_ALLOW_CONTROL_SWITCH): switch.switch_schema(
-                AllowControlSwitch,
-                icon="mdi:lock-open-variant",
+            cv.Optional(CONF_ALLOW_CONTROL_LOCK): lock.lock_schema(
+                AllowControlLock,
+                icon="mdi:shield-lock",
                 entity_category=ENTITY_CATEGORY_CONFIG,
             ),
             cv.Optional(CONF_HOLD_DURATION_MINUTES, default=0): cv.int_range(
@@ -159,6 +160,13 @@ CONFIG_SCHEMA = (
                 unit_of_measurement="°F",
                 icon="mdi:thermometer-high",
                 entity_category=ENTITY_CATEGORY_CONFIG,
+            ),
+            cv.Optional(CONF_LAST_SEEN_SENSOR): sensor.sensor_schema(
+                unit_of_measurement="s",
+                accuracy_decimals=0,
+                icon="mdi:clock-check-outline",
+                state_class=STATE_CLASS_MEASUREMENT,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
         }
     )
@@ -228,9 +236,9 @@ async def to_code(config):
         cg.add(btn.set_parent(var))
         cg.add(var.set_clear_hold_button(btn))
 
-    if CONF_ALLOW_CONTROL_SWITCH in config:
-        sw = await switch.new_switch(config[CONF_ALLOW_CONTROL_SWITCH])
-        cg.add(var.set_allow_control_switch(sw))
+    if CONF_ALLOW_CONTROL_LOCK in config:
+        lck = await lock.new_lock(config[CONF_ALLOW_CONTROL_LOCK])
+        cg.add(var.set_allow_control_lock(lck))
 
     if CONF_HOLD_DURATION_NUMBER in config:
         num = await number.new_number(
@@ -283,3 +291,7 @@ async def to_code(config):
         cg.add(var.set_vacation_max_temp_number(num))
 
     cg.add(var.set_hold_duration_minutes(config[CONF_HOLD_DURATION_MINUTES]))
+
+    if CONF_LAST_SEEN_SENSOR in config:
+        sens = await sensor.new_sensor(config[CONF_LAST_SEEN_SENSOR])
+        cg.add(var.set_last_seen_sensor(sens))

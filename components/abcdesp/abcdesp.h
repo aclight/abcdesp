@@ -5,7 +5,7 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
-#include "esphome/components/switch/switch.h"
+#include "esphome/components/lock/lock.h"
 #include "esphome/components/button/button.h"
 #include "esphome/components/number/number.h"
 #include "esphome/components/uart/uart.h"
@@ -108,11 +108,16 @@ class ClearHoldButton : public button::Button {
 };
 
 // ---------------------------------------------------------------------------
-// Allow Control switch — optimistic toggle, defaults to OFF on boot
+// Allow Control lock — must explicitly unlock to enable HVAC writes
 // ---------------------------------------------------------------------------
-class AllowControlSwitch : public switch_::Switch {
+class AllowControlLock : public lock::Lock {
  protected:
-  void write_state(bool state) override { publish_state(state); }
+  void control(const lock::LockCall &call) override {
+    auto state = call.get_state();
+    if (state == lock::LOCK_STATE_LOCKED || state == lock::LOCK_STATE_UNLOCKED) {
+      publish_state(state);
+    }
+  }
 };
 
 // ---------------------------------------------------------------------------
@@ -184,7 +189,7 @@ class AbcdEspComponent : public Component,
   void set_blower_sensor(binary_sensor::BinarySensor *s) { blower_sensor_ = s; }
   void set_heat_stage_sensor(sensor::Sensor *s) { heat_stage_sensor_ = s; }
   void set_heat_stage_text_sensor(text_sensor::TextSensor *s) { heat_stage_text_sensor_ = s; }
-  void set_allow_control_switch(switch_::Switch *sw) { allow_control_switch_ = sw; }
+  void set_allow_control_lock(lock::Lock *lk) { allow_control_lock_ = lk; }
   void set_indoor_humidity_sensor(sensor::Sensor *s) { indoor_humidity_sensor_ = s; }
   void set_hp_coil_temp_sensor(sensor::Sensor *s) { hp_coil_temp_sensor_ = s; }
   void set_hp_stage_sensor(sensor::Sensor *s) { hp_stage_sensor_ = s; }
@@ -199,6 +204,10 @@ class AbcdEspComponent : public Component,
   void set_vacation_days_number(VacationDaysNumber *n) { vacation_days_number_ = n; }
   void set_vacation_min_temp_number(VacationMinTempNumber *n) { vacation_min_temp_number_ = n; }
   void set_vacation_max_temp_number(VacationMaxTempNumber *n) { vacation_max_temp_number_ = n; }
+  void set_last_seen_sensor(sensor::Sensor *s) { last_seen_sensor_ = s; }
+
+  // Returns true when the Allow Control lock is unlocked
+  bool is_control_allowed() const;
 
   // Clear hold — sends a 3B03 write clearing the hold flag
   void clear_hold();
@@ -326,7 +335,7 @@ class AbcdEspComponent : public Component,
   text_sensor::TextSensor *hp_stage_text_sensor_{nullptr};
 
   // Control gate
-  switch_::Switch *allow_control_switch_{nullptr};
+  lock::Lock *allow_control_lock_{nullptr};
 
   // Communication health
   binary_sensor::BinarySensor *comms_ok_sensor_{nullptr};
@@ -357,6 +366,9 @@ class AbcdEspComponent : public Component,
   VacationDaysNumber *vacation_days_number_{nullptr};
   VacationMinTempNumber *vacation_min_temp_number_{nullptr};
   VacationMaxTempNumber *vacation_max_temp_number_{nullptr};
+
+  // Last seen sensor
+  sensor::Sensor *last_seen_sensor_{nullptr};
 
   // Publish helpers
   void publish_climate_state();
