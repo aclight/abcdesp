@@ -90,7 +90,7 @@ views:
       # Hold & controls
       # ----------------------------------------------------------------
       - type: entities
-        title: Controls
+        title: Hold Controls
         entities:
           - entity: binary_sensor.abcdesp_hold_active
             name: Hold Active
@@ -98,9 +98,39 @@ views:
           - entity: sensor.abcdesp_hold_time_remaining
             name: Hold Time Remaining
             icon: mdi:timer-sand
+          - entity: number.abcdesp_hold_duration
+            name: Default Hold Duration
+            icon: mdi:timer-cog
+          - entity: number.abcdesp_set_hold_time
+            name: Adjust Hold Time
+            icon: mdi:timer-edit
           - entity: button.abcdesp_clear_hold
             name: Clear Hold
             icon: mdi:hand-back-right-off
+
+      # ----------------------------------------------------------------
+      # Vacation configuration — set these before selecting the Away
+      # preset on the thermostat card above
+      # ----------------------------------------------------------------
+      - type: entities
+        title: Vacation Settings
+        entities:
+          - entity: number.abcdesp_vacation_days
+            name: Vacation Days
+            icon: mdi:calendar-range
+          - entity: number.abcdesp_vacation_min_temp
+            name: Vacation Min Temp
+            icon: mdi:thermometer-low
+          - entity: number.abcdesp_vacation_max_temp
+            name: Vacation Max Temp
+            icon: mdi:thermometer-high
+
+      # ----------------------------------------------------------------
+      # Safety & communication
+      # ----------------------------------------------------------------
+      - type: entities
+        title: Safety & Communication
+        entities:
           - entity: switch.abcdesp_allow_control
             name: Allow Control
             icon: mdi:shield-lock-outline
