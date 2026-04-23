@@ -321,9 +321,126 @@ Monitor the thermostat display and ESPHome logs closely.
 
 ---
 
-## I. Communication Resilience
+## I. Read-Only Mode (First Boot / Default State)
 
-### 25. Recovery after brief bus interruption
+> Read-only mode is the **default state** on first boot — Allow Control is OFF.
+> These tests validate the full monitoring experience with zero writes to the bus.
+
+### 27. First-boot read-only experience
+
+**Steps:**
+1. Flash a fresh ESP32 (or erase flash: ESPHome → Clean Build Files → Install)
+2. Let the device boot and connect to HA
+3. Do **not** touch Allow Control — it should default to OFF
+
+**Expected:**
+- `switch.abcdesp_allow_control` = OFF
+- Climate entity populates: current temp, mode, fan mode, setpoints all read from thermostat
+- All configured sensors begin reporting values within ~15 seconds
+- Comms OK → ON
+- ESPHome logs show read requests only — no 0x0C (write) function codes
+
+### 28. All sensors update in read-only mode
+
+**Steps:**
+1. Confirm Allow Control is OFF
+2. Observe the dashboard for 2–3 minutes
+
+**Expected (check each):**
+- `climate.abcdesp_hvac` — current temp, mode, fan mode, setpoints populated
+- `sensor.abcdesp_outdoor_temperature` — plausible value
+- `sensor.abcdesp_indoor_humidity` — plausible value (0–100%)
+- `binary_sensor.abcdesp_blower_running` — matches actual blower state
+- `sensor.abcdesp_airflow_cfm` — reads 0 when idle, positive when running (if air handler on bus)
+- `sensor.abcdesp_heat_stage` / `text_sensor.abcdesp_heat_stage_label` — updates if system is heating
+- `sensor.abcdesp_hp_coil_temperature` / `sensor.abcdesp_hp_stage` — updates if heat pump on bus
+- `binary_sensor.abcdesp_hold_active` — matches thermostat hold state
+- `sensor.abcdesp_hold_time_remaining` — shows countdown if timed hold active
+- `binary_sensor.abcdesp_communication_ok` — ON
+
+### 29. Thermostat-initiated mode change reflects in read-only mode
+
+**Steps:**
+1. Confirm Allow Control is OFF
+2. Change mode on the physical thermostat (e.g., Heat → Cool)
+3. Wait one poll cycle (~5 seconds)
+
+**Expected:**
+- Climate entity in HA updates to match
+- No writes sent by the ESP (verify in logs — no "Sending write" messages)
+
+### 30. Thermostat-initiated setpoint change reflects in read-only mode
+
+**Steps:**
+1. Confirm Allow Control is OFF
+2. Change a setpoint on the physical thermostat
+3. Wait one poll cycle
+
+**Expected:**
+- Climate entity setpoint in HA updates to match thermostat
+- No bus writes
+
+### 31. Thermostat-initiated hold reflects in read-only mode
+
+**Steps:**
+1. Confirm Allow Control is OFF
+2. Set a hold from the physical thermostat (change setpoint and confirm hold on display)
+3. Wait one poll cycle
+
+**Expected:**
+- `binary_sensor.abcdesp_hold_active` → ON
+- `sensor.abcdesp_hold_time_remaining` updates if timed hold
+- No bus writes from ESP
+
+### 32. Thermostat-initiated vacation reflects in read-only mode
+
+**Steps:**
+1. Confirm Allow Control is OFF
+2. Activate vacation mode from the physical thermostat
+3. Wait for a 3B04 poll cycle (~15 seconds)
+
+**Expected:**
+- Climate entity preset → "Away"
+- Vacation number entities update to reflect thermostat values (days, min/max temps)
+- No bus writes from ESP
+
+### 33. HA control attempts are silently blocked in read-only mode
+
+**Steps:**
+1. Confirm Allow Control is OFF
+2. Attempt each from HA:
+   - Change mode (e.g., Heat → Cool)
+   - Change fan mode
+   - Change setpoint
+   - Set preset to "Away"
+   - Press "Clear Hold"
+   - Set "Set Hold Time" to 60
+
+**Expected (each attempt):**
+- No write sent to bus
+- Log: "Control blocked: Allow Control switch is OFF" (or specific variant)
+- Thermostat display unchanged
+- Entity state in HA does **not** change (climate stays at thermostat values)
+
+### 34. Extended read-only stability (soak test)
+
+**Steps:**
+1. Confirm Allow Control is OFF
+2. Leave the system running for at least 1 hour
+3. Periodically check the dashboard
+
+**Expected:**
+- All sensor values continue updating
+- Comms OK stays ON
+- No errors in ESPHome logs (WARN or ERROR level)
+- No writes sent (grep logs for "Sending write" — should be zero)
+- Climate entity stays in sync with thermostat through any mode/setpoint changes made at the thermostat
+
+---
+
+## J. Communication Resilience
+
+### 35. Recovery after brief bus interruption
 
 **Steps:**
 1. Briefly disconnect then reconnect the RS-485 data lines (< 5 seconds)
@@ -334,7 +451,7 @@ Monitor the thermostat display and ESPHome logs closely.
 - Polling resumes normally after reconnection
 - No error codes on thermostat
 
-### 26. CRC failure logging
+### 36. CRC failure logging
 
 **Steps:**
 1. Monitor ESPHome logs at DEBUG level during normal operation
