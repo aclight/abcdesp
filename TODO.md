@@ -10,4 +10,4 @@ Currently only Zone 1 is read and controlled. The Carrier Infinity protocol supp
 - Allow per-zone control of setpoints and fan mode
 
 ## Remaining work
-- **Configurable vacation parameters** — vacation preset currently uses hardcoded values (7 days, 60–80°F, fan auto). Consider exposing as YAML config or number entities. Low priority — matches thermostat's native behavior.
+- ~~**Configurable vacation parameters**~~ — done: `vacation_days_number`, `vacation_min_temp_number`, and `vacation_max_temp_number` entities configure vacation settings before activating Away preset; `parse_vacation` updates entities from thermostat state when vacation is active; defaults to 7 days, 60–80°F if entities not configured

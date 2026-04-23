@@ -92,6 +92,12 @@ abcdesp:
     name: "Hold Duration"
   set_hold_time_number:
     name: "Set Hold Time"
+  vacation_days_number:
+    name: "Vacation Days"
+  vacation_min_temp_number:
+    name: "Vacation Min Temp"
+  vacation_max_temp_number:
+    name: "Vacation Max Temp"
 
 # ----------------------------------------------------------------
 # Diagnostics

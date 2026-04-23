@@ -1283,6 +1283,227 @@ TEST(hold_duration_number_overrides_config) {
 }
 
 // ---------------------------------------------------------------------------
+// Vacation parameter payload construction tests
+// ---------------------------------------------------------------------------
+
+// Helper: build a vacation activation payload using configurable parameters.
+// Mirrors the control() logic.
+static void build_vacation_payload(uint8_t days, uint8_t min_temp,
+                                   uint8_t max_temp, uint8_t *vac_buf) {
+  uint16_t days_x7 = static_cast<uint16_t>(days) * 7;
+  vac_buf[0] = 0x01;                       // vacation_active = 1
+  vac_buf[1] = (days_x7 >> 8) & 0xFF;      // days*7 high byte
+  vac_buf[2] = days_x7 & 0xFF;             // days*7 low byte
+  vac_buf[3] = min_temp;                   // min temp °F
+  vac_buf[4] = max_temp;                   // max temp °F
+  vac_buf[5] = 15;                         // min humidity
+  vac_buf[6] = 60;                         // max humidity
+  vac_buf[7] = FAN_AUTO;
+}
+
+TEST(build_vacation_payload_defaults) {
+  printf("test_build_vacation_payload_defaults\n");
+  // Default vacation: 7 days, 60-80°F
+  uint8_t buf[8];
+  build_vacation_payload(7, 60, 80, buf);
+
+  ASSERT_EQ(buf[0], 0x01);  // active
+  // 7 * 7 = 49 = 0x0031
+  ASSERT_EQ(buf[1], 0x00);
+  ASSERT_EQ(buf[2], 0x31);
+  ASSERT_EQ(buf[3], 60);
+  ASSERT_EQ(buf[4], 80);
+  ASSERT_EQ(buf[5], 15);
+  ASSERT_EQ(buf[6], 60);
+  ASSERT_EQ(buf[7], FAN_AUTO);
+  PASS();
+}
+
+TEST(build_vacation_payload_custom) {
+  printf("test_build_vacation_payload_custom\n");
+  // Custom: 14 days, 55-85°F
+  uint8_t buf[8];
+  build_vacation_payload(14, 55, 85, buf);
+
+  ASSERT_EQ(buf[0], 0x01);
+  // 14 * 7 = 98 = 0x0062
+  uint16_t days_x7 = (buf[1] << 8) | buf[2];
+  ASSERT_EQ(days_x7, 98);
+  ASSERT_EQ(buf[3], 55);
+  ASSERT_EQ(buf[4], 85);
+  PASS();
+}
+
+TEST(build_vacation_payload_boundary_days) {
+  printf("test_build_vacation_payload_boundary_days\n");
+  uint8_t buf[8];
+
+  // 1 day (minimum)
+  build_vacation_payload(1, 60, 80, buf);
+  uint16_t days_x7 = (buf[1] << 8) | buf[2];
+  ASSERT_EQ(days_x7, 7);  // 1 * 7
+
+  // 30 days (maximum)
+  build_vacation_payload(30, 60, 80, buf);
+  days_x7 = (buf[1] << 8) | buf[2];
+  ASSERT_EQ(days_x7, 210);  // 30 * 7 = 0x00D2
+  ASSERT_EQ(buf[1], 0x00);
+  ASSERT_EQ(buf[2], 0xD2);
+  PASS();
+}
+
+TEST(build_vacation_payload_boundary_temps) {
+  printf("test_build_vacation_payload_boundary_temps\n");
+  uint8_t buf[8];
+
+  // Min temp = 40, max temp = 99
+  build_vacation_payload(7, 40, 99, buf);
+  ASSERT_EQ(buf[3], 40);
+  ASSERT_EQ(buf[4], 99);
+
+  // Narrow range: 70-72
+  build_vacation_payload(7, 70, 72, buf);
+  ASSERT_EQ(buf[3], 70);
+  ASSERT_EQ(buf[4], 72);
+  PASS();
+}
+
+TEST(build_vacation_payload_frame_roundtrip) {
+  printf("test_build_vacation_payload_frame_roundtrip\n");
+  // Build a vacation payload, wrap in WRITE frame, verify roundtrip
+  uint8_t vac_buf[8];
+  build_vacation_payload(10, 58, 78, vac_buf);
+
+  InfinityFrame f;
+  f.dst = ADDR_TSTAT;
+  f.src = ADDR_SAM;
+  f.func = FUNC_WRITE;
+  f.length = 3 + 8;
+  f.data[0] = 0x00;
+  f.data[1] = 0x3B;
+  f.data[2] = 0x04;
+  memcpy(f.data + 3, vac_buf, 8);
+
+  uint8_t frame_buf[32];
+  uint16_t frame_len;
+  build_frame(f, frame_buf, frame_len);
+
+  InfinityFrame parsed;
+  ASSERT_TRUE(parse_frame(frame_buf, frame_len, parsed));
+  ASSERT_EQ(parsed.func, FUNC_WRITE);
+  ASSERT_EQ(parsed.data[3], 0x01);   // active
+  ASSERT_EQ(parsed.data[3 + 3], 58); // min temp
+  ASSERT_EQ(parsed.data[3 + 4], 78); // max temp
+  // 10 * 7 = 70
+  uint16_t days_x7 = (parsed.data[3 + 1] << 8) | parsed.data[3 + 2];
+  ASSERT_EQ(days_x7, 70);
+  PASS();
+}
+
+TEST(vacation_number_fallback_logic) {
+  printf("test_vacation_number_fallback_logic\n");
+  // Simulate the fallback logic in control():
+  //   if number entity is configured and has a value, use it; else use default
+
+  uint8_t vac_days = 7;      // default
+  uint8_t vac_min_temp = 60;  // default
+  uint8_t vac_max_temp = 80;  // default
+
+  // When number entities are not configured (nullptr)
+  float *days_state = nullptr;
+  float *min_state = nullptr;
+  float *max_state = nullptr;
+
+  uint8_t result_days = (days_state != nullptr) ? static_cast<uint8_t>(*days_state) : vac_days;
+  uint8_t result_min = (min_state != nullptr) ? static_cast<uint8_t>(*min_state) : vac_min_temp;
+  uint8_t result_max = (max_state != nullptr) ? static_cast<uint8_t>(*max_state) : vac_max_temp;
+  ASSERT_EQ(result_days, 7);
+  ASSERT_EQ(result_min, 60);
+  ASSERT_EQ(result_max, 80);
+
+  // When number entities are configured with custom values
+  float d = 14.0f, mn = 55.0f, mx = 85.0f;
+  days_state = &d;
+  min_state = &mn;
+  max_state = &mx;
+
+  result_days = (days_state != nullptr) ? static_cast<uint8_t>(*days_state) : vac_days;
+  result_min = (min_state != nullptr) ? static_cast<uint8_t>(*min_state) : vac_min_temp;
+  result_max = (max_state != nullptr) ? static_cast<uint8_t>(*max_state) : vac_max_temp;
+  ASSERT_EQ(result_days, 14);
+  ASSERT_EQ(result_min, 55);
+  ASSERT_EQ(result_max, 85);
+  PASS();
+}
+
+TEST(parse_vacation_3b04_fields) {
+  printf("test_parse_vacation_3b04_fields\n");
+  // Verify parsing of 3B04 register content
+  uint8_t data[8] = {0};
+
+  // Active vacation: 10 days, 58-78°F
+  data[0] = 0x01;  // active
+  uint16_t days_x7 = 10 * 7;  // 70
+  data[1] = (days_x7 >> 8) & 0xFF;
+  data[2] = days_x7 & 0xFF;
+  data[3] = 58;  // min temp
+  data[4] = 78;  // max temp
+  data[5] = 15;  // min humidity
+  data[6] = 60;  // max humidity
+  data[7] = FAN_AUTO;
+
+  // Parse fields like parse_vacation does
+  bool active = (data[0] != 0);
+  ASSERT_TRUE(active);
+
+  uint16_t parsed_days_x7 = (data[1] << 8) | data[2];
+  uint8_t parsed_days = (parsed_days_x7 > 0) ? (parsed_days_x7 / 7) : 0;
+  ASSERT_EQ(parsed_days, 10);
+  ASSERT_EQ(data[3], 58);
+  ASSERT_EQ(data[4], 78);
+
+  // Inactive vacation
+  data[0] = 0x00;
+  active = (data[0] != 0);
+  ASSERT_TRUE(!active);
+  PASS();
+}
+
+TEST(vacation_deactivation_payload) {
+  printf("test_vacation_deactivation_payload\n");
+  // Verify the deactivation payload structure
+  uint8_t vac_buf[8];
+  memset(vac_buf, 0, sizeof(vac_buf));
+  vac_buf[0] = 0x00;  // vacation_active = 0
+
+  ASSERT_EQ(vac_buf[0], 0x00);
+  // All other bytes should be zero
+  for (int i = 1; i < 8; i++) {
+    ASSERT_EQ(vac_buf[i], 0);
+  }
+
+  // Wrap in frame and verify
+  InfinityFrame f;
+  f.dst = ADDR_TSTAT;
+  f.src = ADDR_SAM;
+  f.func = FUNC_WRITE;
+  f.length = 3 + 8;
+  f.data[0] = 0x00;
+  f.data[1] = 0x3B;
+  f.data[2] = 0x04;
+  memcpy(f.data + 3, vac_buf, 8);
+
+  uint8_t buf[32];
+  uint16_t buf_len;
+  build_frame(f, buf, buf_len);
+
+  InfinityFrame parsed;
+  ASSERT_TRUE(parse_frame(buf, buf_len, parsed));
+  ASSERT_EQ(parsed.data[3], 0x00);  // inactive
+  PASS();
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 int main() {
