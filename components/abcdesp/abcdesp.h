@@ -114,8 +114,8 @@ class AllowControlLock : public lock::Lock {
  protected:
   void control(const lock::LockCall &call) override {
     auto state = call.get_state();
-    if (state == lock::LOCK_STATE_LOCKED || state == lock::LOCK_STATE_UNLOCKED) {
-      publish_state(state);
+    if (state.has_value()) {
+      publish_state(*state);
     }
   }
 };

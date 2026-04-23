@@ -44,7 +44,7 @@ views:
               - high
           - type: climate-preset-modes
             preset_modes:
-              - Vacation
+              - away
 
       # ----------------------------------------------------------------
       # Outdoor & indoor conditions — the physical thermostat shows

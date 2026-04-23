@@ -852,8 +852,9 @@ climate::ClimateTraits AbcdEspComponent::traits() {
       climate::CLIMATE_FAN_HIGH,
   });
 
-  traits.set_supported_presets({});
-  traits.set_supported_custom_presets({"Vacation"});
+  traits.set_supported_presets({
+      climate::CLIMATE_PRESET_AWAY,
+  });
 
   return traits;
 }
@@ -1043,9 +1044,9 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
   // The next poll of 3B02/3B03 will confirm the thermostat accepted the change.
 
   // Handle preset change (vacation via 3B04)
-  if (call.get_custom_preset().has_value()) {
-    auto preset_str = *call.get_custom_preset();
-    if (preset_str == "Vacation" && !vacation_active_) {
+  if (call.get_preset().has_value()) {
+    auto preset = *call.get_preset();
+    if (preset == climate::CLIMATE_PRESET_AWAY && !vacation_active_) {
       // Read vacation parameters from number entities, falling back to defaults
       uint8_t vac_days = 7;
       uint8_t vac_min_temp = 60;
@@ -1075,7 +1076,7 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
                          vac_buf, 8);
       ESP_LOGI(TAG, "Activating vacation mode (%d days, %d-%dF)",
                vac_days, vac_min_temp, vac_max_temp);
-    } else if (preset_str == "Vacation" && vacation_active_) {
+    } else if (preset == climate::CLIMATE_PRESET_AWAY && vacation_active_) {
       // Deactivate vacation
       uint8_t vac_buf[8];
       memset(vac_buf, 0, sizeof(vac_buf));
@@ -1174,12 +1175,10 @@ void AbcdEspComponent::publish_climate_state() {
     this->action = climate::CLIMATE_ACTION_IDLE;
   }
 
-  // Preset — only show when vacation is active
+  // Preset — only show Away when vacation is active
   if (vacation_initialized_ && vacation_active_) {
-    this->custom_preset = std::string("Vacation");
-    this->preset.reset();
+    this->preset = climate::CLIMATE_PRESET_AWAY;
   } else {
-    this->custom_preset.reset();
     this->preset.reset();
   }
 
