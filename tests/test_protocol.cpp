@@ -540,52 +540,63 @@ TEST(fan_mode_encoding) {
 
 TEST(parse_vacation_3b04) {
   printf("test_parse_vacation_3b04\n");
-  // 3B04: [0]=vacation_active, [1-2]=days*7(BE), [3]=mintemp, [4]=maxtemp,
-  //       [5]=minhumidity, [6]=maxhumidity, [7]=fanmode
-  uint8_t data[8] = {0};
-  data[0] = 0x01;  // vacation active
-  data[1] = 0x00;  // days*7 high (7 days = 49 = 0x0031)
-  data[2] = 0x31;  // days*7 low
-  data[3] = 55;    // min temp
-  data[4] = 85;    // max temp
-  data[5] = 15;    // min humidity
-  data[6] = 60;    // max humidity
-  data[7] = FAN_AUTO;
+  // 3B04 layout (confirmed via hardware logs):
+  //   [0]    = zone count/status (always 0x01)
+  //   [1-2]  = unknown (always 0x00)
+  //   [3]    = vacation_active (0=off, 1=on)
+  //   [4-5]  = hours remaining (uint16 BE)
+  //   [6]    = min temp (°F)
+  //   [7]    = max temp (°F)
+  //   [8]    = min humidity (%)
+  //   [9]    = max humidity (%)
+  //   [10]   = fan mode
+  uint8_t data[11] = {0};
+  data[0] = 0x01;  // zone count (always 1)
+  data[3] = 0x01;  // vacation active
+  data[4] = 0x00;  // hours high (168 = 7 days * 24)
+  data[5] = 0xA8;  // hours low (0x00A8 = 168)
+  data[6] = 55;    // min temp
+  data[7] = 85;    // max temp
+  data[8] = 15;    // min humidity
+  data[9] = 60;    // max humidity
+  data[10] = FAN_AUTO;
 
-  ASSERT_EQ(data[0], 1);  // vacation active
-  uint16_t days_times7 = (data[1] << 8) | data[2];
-  ASSERT_EQ(days_times7, 49);  // 7 days * 7
-  ASSERT_EQ(data[3], 55);
-  ASSERT_EQ(data[4], 85);
-  ASSERT_EQ(data[5], 15);
-  ASSERT_EQ(data[6], 60);
-  ASSERT_EQ(data[7], FAN_AUTO);
+  // Vacation active flag is byte 3, not byte 0
+  bool vacation_active = (data[3] != 0);
+  ASSERT_TRUE(vacation_active);
 
-  // Inactive vacation
-  data[0] = 0x00;
-  ASSERT_EQ(data[0], 0);
+  uint16_t hours = (data[4] << 8) | data[5];
+  ASSERT_EQ(hours, 168);  // 7 days * 24
+  uint8_t vac_days = hours / 24;
+  ASSERT_EQ(vac_days, 7);
+  ASSERT_EQ(data[6], 55);
+  ASSERT_EQ(data[7], 85);
+  ASSERT_EQ(data[8], 15);
+  ASSERT_EQ(data[9], 60);
+  ASSERT_EQ(data[10], FAN_AUTO);
 
-  // Byte 0 non-zero but days=0 — should NOT be considered active
-  // (thermostat may keep byte 0 set after vacation expires)
-  data[0] = 0x01;
-  data[1] = 0x00;
-  data[2] = 0x00;  // days*7 = 0
-  days_times7 = (data[1] << 8) | data[2];
-  bool vacation_active = (data[0] != 0);
-  if (vacation_active && days_times7 == 0) {
-    vacation_active = false;
-  }
+  // Inactive vacation — byte 3 = 0
+  data[3] = 0x00;
+  vacation_active = (data[3] != 0);
   ASSERT_TRUE(!vacation_active);
 
-  // Byte 0 non-zero AND days > 0 — genuinely active
-  data[0] = 0x01;
-  data[1] = 0x00;
-  data[2] = 0x07;  // days*7 = 7 (1 day)
-  days_times7 = (data[1] << 8) | data[2];
-  vacation_active = (data[0] != 0);
-  if (vacation_active && days_times7 == 0) {
-    vacation_active = false;
-  }
+  // Byte 0 always 0x01 regardless of vacation state
+  ASSERT_EQ(data[0], 0x01);
+
+  // 2-day vacation: 48 hours = 0x0030
+  data[3] = 0x01;
+  data[4] = 0x00;
+  data[5] = 0x30;  // 48 hours
+  hours = (data[4] << 8) | data[5];
+  ASSERT_EQ(hours, 48);
+  ASSERT_EQ(hours / 24, 2);
+
+  // Vacation active with 0 hours — still active per byte 3
+  // (thermostat may report 0 hours briefly during activation)
+  data[3] = 0x01;
+  data[4] = 0x00;
+  data[5] = 0x00;
+  vacation_active = (data[3] != 0);
   ASSERT_TRUE(vacation_active);
   PASS();
 }
@@ -734,8 +745,9 @@ TEST(setpoint_f_to_c_rounding) {
 
 TEST(target_temp_clear_stale_on_mode_switch) {
   printf("test_target_temp_clear_stale_on_mode_switch\n");
-  // When switching from AUTO (dual target) to HEAT or COOL (single target),
-  // the unused target fields must be NaN so HA doesn't show stale values.
+  // With TWO_POINT_TARGET_TEMPERATURE, always use dual targets (low/high).
+  // HA thermostat card shows the relevant slider based on mode.
+  // Single target_temperature is always NaN.
 
   uint8_t heat_setpoint = 68;
   uint8_t cool_setpoint = 76;
@@ -743,34 +755,39 @@ TEST(target_temp_clear_stale_on_mode_switch) {
   float target_temperature_low = NAN;
   float target_temperature_high = NAN;
 
-  // Simulate AUTO mode — sets dual targets, clears single
-  target_temperature_low = f_to_c(static_cast<float>(heat_setpoint));
-  target_temperature_high = f_to_c(static_cast<float>(cool_setpoint));
-  target_temperature = NAN;
+  // Helper lambda mirrors publish_climate_state logic
+  auto update_targets = [&](int mode) {
+    // mode: 0=OFF, else=any active mode
+    if (mode == 0) {
+      target_temperature_low = NAN;
+      target_temperature_high = NAN;
+    } else {
+      target_temperature_low = f_to_c(static_cast<float>(heat_setpoint));
+      target_temperature_high = f_to_c(static_cast<float>(cool_setpoint));
+    }
+    target_temperature = NAN;  // always NaN with two-point
+  };
+
+  // HEAT mode — both low/high set
+  update_targets(1);
   ASSERT_TRUE(!std::isnan(target_temperature_low));
   ASSERT_TRUE(!std::isnan(target_temperature_high));
   ASSERT_TRUE(std::isnan(target_temperature));
 
-  // Simulate switching to COOL mode — must clear dual targets
-  target_temperature = f_to_c(static_cast<float>(cool_setpoint));
-  target_temperature_low = NAN;
-  target_temperature_high = NAN;
-  ASSERT_TRUE(!std::isnan(target_temperature));
-  ASSERT_TRUE(std::isnan(target_temperature_low));   // must be NaN
-  ASSERT_TRUE(std::isnan(target_temperature_high));  // must be NaN
+  // COOL mode — both low/high set
+  update_targets(2);
+  ASSERT_TRUE(!std::isnan(target_temperature_low));
+  ASSERT_TRUE(!std::isnan(target_temperature_high));
+  ASSERT_TRUE(std::isnan(target_temperature));
 
-  // Simulate switching to HEAT mode — must clear dual targets
-  target_temperature = f_to_c(static_cast<float>(heat_setpoint));
-  target_temperature_low = NAN;
-  target_temperature_high = NAN;
-  ASSERT_TRUE(!std::isnan(target_temperature));
-  ASSERT_TRUE(std::isnan(target_temperature_low));
-  ASSERT_TRUE(std::isnan(target_temperature_high));
+  // AUTO mode — both low/high set
+  update_targets(3);
+  ASSERT_TRUE(!std::isnan(target_temperature_low));
+  ASSERT_TRUE(!std::isnan(target_temperature_high));
+  ASSERT_TRUE(std::isnan(target_temperature));
 
-  // Simulate switching to OFF — all NaN
-  target_temperature = NAN;
-  target_temperature_low = NAN;
-  target_temperature_high = NAN;
+  // OFF mode — all NaN
+  update_targets(0);
   ASSERT_TRUE(std::isnan(target_temperature));
   ASSERT_TRUE(std::isnan(target_temperature_low));
   ASSERT_TRUE(std::isnan(target_temperature_high));
@@ -1417,102 +1434,106 @@ TEST(hold_duration_number_overrides_config) {
 // ---------------------------------------------------------------------------
 
 // Helper: build a vacation activation payload using configurable parameters.
-// Mirrors the control() logic.
+// Mirrors the activate_vacation() logic with corrected 11-byte layout.
 static void build_vacation_payload(uint8_t days, uint8_t min_temp,
                                    uint8_t max_temp, uint8_t *vac_buf) {
-  uint16_t days_x7 = static_cast<uint16_t>(days) * 7;
-  vac_buf[0] = 0x01;                       // vacation_active = 1
-  vac_buf[1] = (days_x7 >> 8) & 0xFF;      // days*7 high byte
-  vac_buf[2] = days_x7 & 0xFF;             // days*7 low byte
-  vac_buf[3] = min_temp;                   // min temp °F
-  vac_buf[4] = max_temp;                   // max temp °F
-  vac_buf[5] = 15;                         // min humidity
-  vac_buf[6] = 60;                         // max humidity
-  vac_buf[7] = FAN_AUTO;
+  uint16_t hours = static_cast<uint16_t>(days) * 24;
+  memset(vac_buf, 0, 11);
+  vac_buf[0] = 0x01;                       // zone count/status
+  vac_buf[3] = 0x01;                       // vacation_active = 1
+  vac_buf[4] = (hours >> 8) & 0xFF;        // hours high byte
+  vac_buf[5] = hours & 0xFF;               // hours low byte
+  vac_buf[6] = min_temp;                   // min temp °F
+  vac_buf[7] = max_temp;                   // max temp °F
+  vac_buf[8] = 15;                         // min humidity
+  vac_buf[9] = 60;                         // max humidity
+  vac_buf[10] = FAN_AUTO;
 }
 
 TEST(build_vacation_payload_defaults) {
   printf("test_build_vacation_payload_defaults\n");
   // Default vacation: 7 days, 60-80°F
-  uint8_t buf[8];
+  uint8_t buf[11];
   build_vacation_payload(7, 60, 80, buf);
 
-  ASSERT_EQ(buf[0], 0x01);  // active
-  // 7 * 7 = 49 = 0x0031
-  ASSERT_EQ(buf[1], 0x00);
-  ASSERT_EQ(buf[2], 0x31);
-  ASSERT_EQ(buf[3], 60);
-  ASSERT_EQ(buf[4], 80);
-  ASSERT_EQ(buf[5], 15);
+  ASSERT_EQ(buf[0], 0x01);  // zone count
+  ASSERT_EQ(buf[3], 0x01);  // active
+  // 7 * 24 = 168 = 0x00A8
+  uint16_t hours = (buf[4] << 8) | buf[5];
+  ASSERT_EQ(hours, 168);
   ASSERT_EQ(buf[6], 60);
-  ASSERT_EQ(buf[7], FAN_AUTO);
+  ASSERT_EQ(buf[7], 80);
+  ASSERT_EQ(buf[8], 15);
+  ASSERT_EQ(buf[9], 60);
+  ASSERT_EQ(buf[10], FAN_AUTO);
   PASS();
 }
 
 TEST(build_vacation_payload_custom) {
   printf("test_build_vacation_payload_custom\n");
   // Custom: 14 days, 55-85°F
-  uint8_t buf[8];
+  uint8_t buf[11];
   build_vacation_payload(14, 55, 85, buf);
 
-  ASSERT_EQ(buf[0], 0x01);
-  // 14 * 7 = 98 = 0x0062
-  uint16_t days_x7 = (buf[1] << 8) | buf[2];
-  ASSERT_EQ(days_x7, 98);
-  ASSERT_EQ(buf[3], 55);
-  ASSERT_EQ(buf[4], 85);
+  ASSERT_EQ(buf[0], 0x01);  // zone count
+  ASSERT_EQ(buf[3], 0x01);  // active
+  // 14 * 24 = 336 = 0x0150
+  uint16_t hours = (buf[4] << 8) | buf[5];
+  ASSERT_EQ(hours, 336);
+  ASSERT_EQ(buf[6], 55);
+  ASSERT_EQ(buf[7], 85);
   PASS();
 }
 
 TEST(build_vacation_payload_boundary_days) {
   printf("test_build_vacation_payload_boundary_days\n");
-  uint8_t buf[8];
+  uint8_t buf[11];
 
   // 1 day (minimum)
   build_vacation_payload(1, 60, 80, buf);
-  uint16_t days_x7 = (buf[1] << 8) | buf[2];
-  ASSERT_EQ(days_x7, 7);  // 1 * 7
+  uint16_t hours = (buf[4] << 8) | buf[5];
+  ASSERT_EQ(hours, 24);  // 1 * 24
 
   // 30 days (maximum)
   build_vacation_payload(30, 60, 80, buf);
-  days_x7 = (buf[1] << 8) | buf[2];
-  ASSERT_EQ(days_x7, 210);  // 30 * 7 = 0x00D2
-  ASSERT_EQ(buf[1], 0x00);
-  ASSERT_EQ(buf[2], 0xD2);
+  hours = (buf[4] << 8) | buf[5];
+  ASSERT_EQ(hours, 720);  // 30 * 24 = 0x02D0
+  ASSERT_EQ(buf[4], 0x02);
+  ASSERT_EQ(buf[5], 0xD0);
   PASS();
 }
 
 TEST(build_vacation_payload_boundary_temps) {
   printf("test_build_vacation_payload_boundary_temps\n");
-  uint8_t buf[8];
+  uint8_t buf[11];
 
   // Min temp = 40, max temp = 99
   build_vacation_payload(7, 40, 99, buf);
-  ASSERT_EQ(buf[3], 40);
-  ASSERT_EQ(buf[4], 99);
+  ASSERT_EQ(buf[6], 40);
+  ASSERT_EQ(buf[7], 99);
 
   // Narrow range: 70-72
   build_vacation_payload(7, 70, 72, buf);
-  ASSERT_EQ(buf[3], 70);
-  ASSERT_EQ(buf[4], 72);
+  ASSERT_EQ(buf[6], 70);
+  ASSERT_EQ(buf[7], 72);
   PASS();
 }
 
 TEST(build_vacation_payload_frame_roundtrip) {
   printf("test_build_vacation_payload_frame_roundtrip\n");
   // Build a vacation payload, wrap in WRITE frame, verify roundtrip
-  uint8_t vac_buf[8];
+  uint8_t vac_buf[11];
   build_vacation_payload(10, 58, 78, vac_buf);
 
   InfinityFrame f;
   f.dst = ADDR_TSTAT;
   f.src = ADDR_SAM;
   f.func = FUNC_WRITE;
-  f.length = 3 + 8;
+  f.length = 3 + 11;
   f.data[0] = 0x00;
   f.data[1] = 0x3B;
   f.data[2] = 0x04;
-  memcpy(f.data + 3, vac_buf, 8);
+  memcpy(f.data + 3, vac_buf, 11);
 
   uint8_t frame_buf[32];
   uint16_t frame_len;
@@ -1521,12 +1542,13 @@ TEST(build_vacation_payload_frame_roundtrip) {
   InfinityFrame parsed;
   ASSERT_TRUE(parse_frame(frame_buf, frame_len, parsed));
   ASSERT_EQ(parsed.func, FUNC_WRITE);
-  ASSERT_EQ(parsed.data[3], 0x01);   // active
-  ASSERT_EQ(parsed.data[3 + 3], 58); // min temp
-  ASSERT_EQ(parsed.data[3 + 4], 78); // max temp
-  // 10 * 7 = 70
-  uint16_t days_x7 = (parsed.data[3 + 1] << 8) | parsed.data[3 + 2];
-  ASSERT_EQ(days_x7, 70);
+  ASSERT_EQ(parsed.data[3], 0x01);     // zone count
+  ASSERT_EQ(parsed.data[3 + 3], 0x01); // vacation active
+  ASSERT_EQ(parsed.data[3 + 6], 58);   // min temp
+  ASSERT_EQ(parsed.data[3 + 7], 78);   // max temp
+  // 10 * 24 = 240 = 0x00F0
+  uint16_t hours = (parsed.data[3 + 4] << 8) | parsed.data[3 + 5];
+  ASSERT_EQ(hours, 240);
   PASS();
 }
 
@@ -1568,47 +1590,57 @@ TEST(vacation_number_fallback_logic) {
 
 TEST(parse_vacation_3b04_fields) {
   printf("test_parse_vacation_3b04_fields\n");
-  // Verify parsing of 3B04 register content
-  uint8_t data[8] = {0};
+  // Verify parsing of 3B04 register content with corrected layout
+  // [0]=zone, [3]=active, [4-5]=hours(BE), [6]=min, [7]=max
+  uint8_t data[11] = {0};
 
-  // Active vacation: 10 days, 58-78°F
-  data[0] = 0x01;  // active
-  uint16_t days_x7 = 10 * 7;  // 70
-  data[1] = (days_x7 >> 8) & 0xFF;
-  data[2] = days_x7 & 0xFF;
-  data[3] = 58;  // min temp
-  data[4] = 78;  // max temp
-  data[5] = 15;  // min humidity
-  data[6] = 60;  // max humidity
-  data[7] = FAN_AUTO;
+  // Active vacation: 10 days (240 hours), 58-78°F
+  data[0] = 0x01;  // zone count (always 1)
+  data[3] = 0x01;  // active
+  uint16_t hours = 10 * 24;  // 240
+  data[4] = (hours >> 8) & 0xFF;
+  data[5] = hours & 0xFF;
+  data[6] = 58;  // min temp
+  data[7] = 78;  // max temp
+  data[8] = 15;  // min humidity
+  data[9] = 60;  // max humidity
+  data[10] = FAN_AUTO;
 
   // Parse fields like parse_vacation does
-  bool active = (data[0] != 0);
+  bool active = (data[3] != 0);
   ASSERT_TRUE(active);
 
-  uint16_t parsed_days_x7 = (data[1] << 8) | data[2];
-  uint8_t parsed_days = (parsed_days_x7 > 0) ? (parsed_days_x7 / 7) : 0;
+  uint16_t parsed_hours = (data[4] << 8) | data[5];
+  uint8_t parsed_days = parsed_hours / 24;
+  ASSERT_EQ(parsed_hours, 240);
   ASSERT_EQ(parsed_days, 10);
-  ASSERT_EQ(data[3], 58);
-  ASSERT_EQ(data[4], 78);
+  ASSERT_EQ(data[6], 58);
+  ASSERT_EQ(data[7], 78);
 
-  // Inactive vacation
-  data[0] = 0x00;
-  active = (data[0] != 0);
+  // Inactive vacation — byte 3 = 0
+  data[3] = 0x00;
+  active = (data[3] != 0);
   ASSERT_TRUE(!active);
+
+  // Byte 0 remains 0x01 even when inactive
+  ASSERT_EQ(data[0], 0x01);
   PASS();
 }
 
 TEST(vacation_deactivation_payload) {
   printf("test_vacation_deactivation_payload\n");
-  // Verify the deactivation payload structure
-  uint8_t vac_buf[8];
+  // Verify the deactivation payload structure (11 bytes)
+  uint8_t vac_buf[11];
   memset(vac_buf, 0, sizeof(vac_buf));
-  vac_buf[0] = 0x00;  // vacation_active = 0
+  vac_buf[0] = 0x01;  // zone count (always 0x01)
+  vac_buf[3] = 0x00;  // vacation_active = 0
 
-  ASSERT_EQ(vac_buf[0], 0x00);
-  // All other bytes should be zero
-  for (int i = 1; i < 8; i++) {
+  ASSERT_EQ(vac_buf[0], 0x01);  // zone count preserved
+  ASSERT_EQ(vac_buf[3], 0x00);  // inactive
+  // Bytes 1-2, 4-10 should be zero
+  ASSERT_EQ(vac_buf[1], 0);
+  ASSERT_EQ(vac_buf[2], 0);
+  for (int i = 4; i < 11; i++) {
     ASSERT_EQ(vac_buf[i], 0);
   }
 
@@ -1617,11 +1649,11 @@ TEST(vacation_deactivation_payload) {
   f.dst = ADDR_TSTAT;
   f.src = ADDR_SAM;
   f.func = FUNC_WRITE;
-  f.length = 3 + 8;
+  f.length = 3 + 11;
   f.data[0] = 0x00;
   f.data[1] = 0x3B;
   f.data[2] = 0x04;
-  memcpy(f.data + 3, vac_buf, 8);
+  memcpy(f.data + 3, vac_buf, 11);
 
   uint8_t buf[32];
   uint16_t buf_len;
@@ -1629,7 +1661,8 @@ TEST(vacation_deactivation_payload) {
 
   InfinityFrame parsed;
   ASSERT_TRUE(parse_frame(buf, buf_len, parsed));
-  ASSERT_EQ(parsed.data[3], 0x00);  // inactive
+  ASSERT_EQ(parsed.data[3], 0x01);  // zone count byte
+  ASSERT_EQ(parsed.data[6], 0x00);  // vacation inactive (byte 3 of payload)
   PASS();
 }
 

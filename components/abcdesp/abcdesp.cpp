@@ -797,12 +797,19 @@ void AbcdEspComponent::parse_heatpump_02(const uint8_t *data,
 }
 
 // ==========================================================================
-// Parse 3B04 — vacation settings (11 bytes)
-// Layout: [0]=vacation_active, [1-2]=days*7(BE), [3]=mintemp, [4]=maxtemp,
-//         [5]=minhumidity, [6]=maxhumidity, [7]=fanmode
+// Parse 3B04 — vacation settings (11 bytes)d// Layout (confirmed via hardware logs):
+//   [0]    = zone count/status (always 0x01, NOT vacation flag)
+//   [1-2]  = unknown (always 0x00)
+//   [3]    = vacation_active (0=off, 1=on)
+//   [4-5]  = hours remaining (uint16 BE; e.g. 0x0030 = 48h = 2 days)
+//   [6]    = min temp (°F)
+//   [7]    = max temp (°F)
+//   [8]    = min humidity (%)
+//   [9]    = max humidity (%)
+//   [10]   = fan mode
 // ==========================================================================
 void AbcdEspComponent::parse_vacation(const uint8_t *data, uint8_t len) {
-  if (len < 1) {
+  if (len < 4) {
     return;
   }
 
@@ -816,23 +823,17 @@ void AbcdEspComponent::parse_vacation(const uint8_t *data, uint8_t len) {
   ESP_LOGD(TAG, "3B04 raw (%d bytes): %s", len, hex_buf);
 
   bool was_active = vacation_active_;
-  vacation_active_ = (data[0] != 0);
+  vacation_active_ = (data[3] != 0);
 
-  // Parse vacation parameters if present (bytes 1-7)
+  // Parse vacation parameters if present (bytes 4-10)
   if (len >= 8) {
-    uint16_t days_x7 = (data[1] << 8) | data[2];
-    uint8_t vac_days = (days_x7 > 0) ? (days_x7 / 7) : 0;
-    uint8_t vac_min_temp = data[3];
-    uint8_t vac_max_temp = data[4];
+    uint16_t hours = (data[4] << 8) | data[5];
+    uint8_t vac_days = (hours > 0) ? (hours / 24) : 0;
+    uint8_t vac_min_temp = data[6];
+    uint8_t vac_max_temp = data[7];
 
-    // A vacation with 0 days remaining is not really active — the thermostat
-    // may keep byte 0 non-zero after a vacation expires or is configured.
-    if (vacation_active_ && days_x7 == 0) {
-      vacation_active_ = false;
-    }
-
-    ESP_LOGD(TAG, "3B04: byte0=0x%02X  vacation=%s  days=%d  min=%d°F  max=%d°F",
-             data[0], vacation_active_ ? "active" : "off", vac_days,
+    ESP_LOGD(TAG, "3B04: vacation=%s  hours=%d  days=%d  min=%d°F  max=%d°F",
+             vacation_active_ ? "active" : "off", hours, vac_days,
              vac_min_temp, vac_max_temp);
 
     // Update number entities with current thermostat values when vacation is active
@@ -1107,30 +1108,19 @@ void AbcdEspComponent::publish_climate_state() {
   }
 
   // Target temperatures (convert °F → °C for HA)
-  // Use single target in heat/cool modes, dual target in auto mode.
-  // Clear the unused target fields so HA doesn't show stale values.
-  switch (this->mode) {
-    case climate::CLIMATE_MODE_HEAT:
-      this->target_temperature = f_to_c(static_cast<float>(heat_setpoint_));
-      this->target_temperature_low = NAN;
-      this->target_temperature_high = NAN;
-      break;
-    case climate::CLIMATE_MODE_COOL:
-      this->target_temperature = f_to_c(static_cast<float>(cool_setpoint_));
-      this->target_temperature_low = NAN;
-      this->target_temperature_high = NAN;
-      break;
-    case climate::CLIMATE_MODE_HEAT_COOL:
-      this->target_temperature_low = f_to_c(static_cast<float>(heat_setpoint_));
-      this->target_temperature_high = f_to_c(static_cast<float>(cool_setpoint_));
-      this->target_temperature = NAN;
-      break;
-    default:
-      this->target_temperature = NAN;
-      this->target_temperature_low = NAN;
-      this->target_temperature_high = NAN;
-      break;
+  // Traits declares TWO_POINT_TARGET_TEMPERATURE. ESPHome/HA thermostat card
+  // automatically shows just the relevant slider based on mode:
+  //   HEAT → shows only the low setpoint
+  //   COOL → shows only the high setpoint
+  //   HEAT_COOL → shows both as a range
+  if (this->mode == climate::CLIMATE_MODE_OFF) {
+    this->target_temperature_low = NAN;
+    this->target_temperature_high = NAN;
+  } else {
+    this->target_temperature_low = f_to_c(static_cast<float>(heat_setpoint_));
+    this->target_temperature_high = f_to_c(static_cast<float>(cool_setpoint_));
   }
+  this->target_temperature = NAN;
 
   // Fan mode
   switch (fan_mode_) {
@@ -1394,20 +1384,22 @@ void AbcdEspComponent::activate_vacation() {
     vac_max_temp = static_cast<uint8_t>(vacation_max_temp_number_->state);
   }
 
-  uint16_t days_x7 = static_cast<uint16_t>(vac_days) * 7;
-  uint8_t vac_buf[8];
-  vac_buf[0] = 0x01;                       // vacation_active = 1
-  vac_buf[1] = (days_x7 >> 8) & 0xFF;      // days*7 high byte
-  vac_buf[2] = days_x7 & 0xFF;             // days*7 low byte
-  vac_buf[3] = vac_min_temp;               // min temp °F
-  vac_buf[4] = vac_max_temp;               // max temp °F
-  vac_buf[5] = 15;                         // min humidity
-  vac_buf[6] = 60;                         // max humidity
-  vac_buf[7] = FAN_AUTO;
+  uint16_t hours = static_cast<uint16_t>(vac_days) * 24;
+  uint8_t vac_buf[11];
+  memset(vac_buf, 0, sizeof(vac_buf));
+  vac_buf[0] = 0x01;                       // zone count/status
+  vac_buf[3] = 0x01;                       // vacation_active = 1
+  vac_buf[4] = (hours >> 8) & 0xFF;        // hours high byte
+  vac_buf[5] = hours & 0xFF;               // hours low byte
+  vac_buf[6] = vac_min_temp;               // min temp °F
+  vac_buf[7] = vac_max_temp;               // max temp °F
+  vac_buf[8] = 15;                         // min humidity
+  vac_buf[9] = 60;                         // max humidity
+  vac_buf[10] = FAN_AUTO;
   send_write_request(ADDR_TSTAT, TBL_SAM_INFO, ROW_SAM_VACATION,
-                     vac_buf, 8);
-  ESP_LOGI(TAG, "Activating vacation mode (%d days, %d-%dF)",
-           vac_days, vac_min_temp, vac_max_temp);
+                     vac_buf, 11);
+  ESP_LOGI(TAG, "Activating vacation mode (%d days / %d hours, %d-%dF)",
+           vac_days, hours, vac_min_temp, vac_max_temp);
 }
 
 // ==========================================================================
@@ -1424,11 +1416,12 @@ void AbcdEspComponent::cancel_vacation() {
     return;
   }
 
-  uint8_t vac_buf[8];
+  uint8_t vac_buf[11];
   memset(vac_buf, 0, sizeof(vac_buf));
-  vac_buf[0] = 0x00;  // vacation_active = 0
+  vac_buf[0] = 0x01;  // zone count/status (always 0x01)
+  vac_buf[3] = 0x00;  // vacation_active = 0
   send_write_request(ADDR_TSTAT, TBL_SAM_INFO, ROW_SAM_VACATION,
-                     vac_buf, 8);
+                     vac_buf, 11);
   ESP_LOGI(TAG, "Deactivating vacation mode");
 }
 
