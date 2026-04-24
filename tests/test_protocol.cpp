@@ -35,7 +35,8 @@ static const uint8_t REG_PREFIX       = 0x00;
 static const uint8_t MODE_HEAT = 0x00;
 static const uint8_t MODE_COOL = 0x01;
 static const uint8_t MODE_AUTO = 0x02;
-static const uint8_t MODE_EHEAT = 0x03;\nstatic const uint8_t MODE_OFF  = 0x05;
+static const uint8_t MODE_EHEAT = 0x03;
+static const uint8_t MODE_OFF  = 0x05;
 
 static const uint8_t FAN_AUTO = 0x00;
 static const uint8_t FAN_LOW  = 0x01;
