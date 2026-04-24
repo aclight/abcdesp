@@ -540,6 +540,29 @@ TEST(parse_vacation_3b04) {
   // Inactive vacation
   data[0] = 0x00;
   ASSERT_EQ(data[0], 0);
+
+  // Byte 0 non-zero but days=0 — should NOT be considered active
+  // (thermostat may keep byte 0 set after vacation expires)
+  data[0] = 0x01;
+  data[1] = 0x00;
+  data[2] = 0x00;  // days*7 = 0
+  days_times7 = (data[1] << 8) | data[2];
+  bool vacation_active = (data[0] != 0);
+  if (vacation_active && days_times7 == 0) {
+    vacation_active = false;
+  }
+  ASSERT_TRUE(!vacation_active);
+
+  // Byte 0 non-zero AND days > 0 — genuinely active
+  data[0] = 0x01;
+  data[1] = 0x00;
+  data[2] = 0x07;  // days*7 = 7 (1 day)
+  days_times7 = (data[1] << 8) | data[2];
+  vacation_active = (data[0] != 0);
+  if (vacation_active && days_times7 == 0) {
+    vacation_active = false;
+  }
+  ASSERT_TRUE(vacation_active);
   PASS();
 }
 
