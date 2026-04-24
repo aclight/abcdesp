@@ -720,6 +720,7 @@ void AbcdEspComponent::parse_airhandler_06(const uint8_t *data,
 
   if (blower_running_ != was_running) {
     publish_sensors();
+    publish_climate_state();  // action depends on blower state
   }
 }
 
@@ -742,6 +743,7 @@ void AbcdEspComponent::parse_airhandler_16(const uint8_t *data,
   ESP_LOGD(TAG, "0316: heat_stage=%d  CFM=%d", heat_stage_, airflow_cfm_);
 
   publish_sensors();
+  publish_climate_state();  // action depends on heat_stage and blower
 }
 
 // ==========================================================================
@@ -791,6 +793,7 @@ void AbcdEspComponent::parse_heatpump_02(const uint8_t *data,
   hp_stage_ = data[0] >> 1;
   ESP_LOGD(TAG, "3E02: HP stage=%d", hp_stage_);
   publish_sensors();
+  publish_climate_state();  // action depends on hp_stage
 }
 
 // ==========================================================================
@@ -802,6 +805,15 @@ void AbcdEspComponent::parse_vacation(const uint8_t *data, uint8_t len) {
   if (len < 1) {
     return;
   }
+
+  // Hex dump all bytes for protocol debugging
+  char hex_buf[3 * 16 + 1];
+  uint8_t dump_len = (len > 16) ? 16 : len;
+  for (uint8_t i = 0; i < dump_len; i++) {
+    snprintf(hex_buf + i * 3, 4, "%02X ", data[i]);
+  }
+  hex_buf[dump_len * 3] = '\0';
+  ESP_LOGD(TAG, "3B04 raw (%d bytes): %s", len, hex_buf);
 
   bool was_active = vacation_active_;
   vacation_active_ = (data[0] != 0);
@@ -962,7 +974,7 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
     uint8_t target = static_cast<uint8_t>(c_to_f(*call.get_target_temperature()) + 0.5f);
     // Determine which setpoint based on effective mode
     uint8_t effective_mode = call.get_mode().has_value() ? new_mode : current_mode_;
-    if (effective_mode == MODE_HEAT) {
+    if (effective_mode == MODE_HEAT || effective_mode == MODE_EHEAT) {
       new_heat = target;
       flags |= 0x0004;  // heat setpoint flag
     } else if (effective_mode == MODE_COOL) {
@@ -1079,6 +1091,7 @@ void AbcdEspComponent::publish_climate_state() {
   // Mode
   switch (current_mode_) {
     case MODE_HEAT:
+    case MODE_EHEAT:
       this->mode = climate::CLIMATE_MODE_HEAT;
       break;
     case MODE_COOL:
@@ -1152,7 +1165,7 @@ void AbcdEspComponent::publish_climate_state() {
     } else {
       this->action = climate::CLIMATE_ACTION_COOLING;
     }
-  } else if (hp_stage_ > 0 && current_mode_ == MODE_HEAT) {
+  } else if (hp_stage_ > 0 && (current_mode_ == MODE_HEAT || current_mode_ == MODE_EHEAT)) {
     this->action = climate::CLIMATE_ACTION_HEATING;
   } else if (blower_running_) {
     this->action = climate::CLIMATE_ACTION_FAN;

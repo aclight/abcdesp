@@ -55,6 +55,7 @@ static const uint8_t ROW_HP_02         = 0x02;   // 3E02 — stage
 static const uint8_t MODE_HEAT          = 0x00;
 static const uint8_t MODE_COOL          = 0x01;
 static const uint8_t MODE_AUTO          = 0x02;
+static const uint8_t MODE_EHEAT         = 0x03;  // electric/HP heat
 static const uint8_t MODE_OFF           = 0x05;
 
 // Fan mode values

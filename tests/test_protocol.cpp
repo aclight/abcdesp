@@ -35,6 +35,7 @@ static const uint8_t REG_PREFIX       = 0x00;
 static const uint8_t MODE_HEAT = 0x00;
 static const uint8_t MODE_COOL = 0x01;
 static const uint8_t MODE_AUTO = 0x02;
+static const uint8_t MODE_EHEAT = 0x03;
 static const uint8_t MODE_OFF  = 0x05;
 
 static const uint8_t FAN_AUTO = 0x00;
@@ -501,7 +502,30 @@ TEST(mode_encoding) {
   ASSERT_EQ(MODE_HEAT, 0x00);
   ASSERT_EQ(MODE_COOL, 0x01);
   ASSERT_EQ(MODE_AUTO, 0x02);
+  ASSERT_EQ(MODE_EHEAT, 0x03);
   ASSERT_EQ(MODE_OFF,  0x05);
+
+  // Both MODE_HEAT and MODE_EHEAT should map to heating
+  auto mode_to_climate = [](uint8_t m) -> int {
+    switch (m) {
+      case MODE_HEAT:
+      case MODE_EHEAT:
+        return 1;  // CLIMATE_MODE_HEAT
+      case MODE_COOL:
+        return 2;  // CLIMATE_MODE_COOL
+      case MODE_AUTO:
+        return 3;  // CLIMATE_MODE_HEAT_COOL
+      case MODE_OFF:
+      default:
+        return 0;  // CLIMATE_MODE_OFF
+    }
+  };
+  ASSERT_EQ(mode_to_climate(MODE_HEAT), 1);
+  ASSERT_EQ(mode_to_climate(MODE_EHEAT), 1);
+  ASSERT_EQ(mode_to_climate(MODE_COOL), 2);
+  ASSERT_EQ(mode_to_climate(MODE_AUTO), 3);
+  ASSERT_EQ(mode_to_climate(MODE_OFF), 0);
+  ASSERT_EQ(mode_to_climate(0x07), 0);  // unknown mode → OFF
   PASS();
 }
 
@@ -1606,6 +1630,63 @@ TEST(vacation_deactivation_payload) {
   InfinityFrame parsed;
   ASSERT_TRUE(parse_frame(buf, buf_len, parsed));
   ASSERT_EQ(parsed.data[3], 0x00);  // inactive
+  PASS();
+}
+
+TEST(action_depends_on_stage_and_mode) {
+  printf("test_action_depends_on_stage_and_mode\n");
+
+  // Replicate the action logic from publish_climate_state
+  auto compute_action = [](uint8_t mode, uint8_t heat_stage, uint8_t hp_stage,
+                           bool blower_running) -> int {
+    // Return values mirror ClimateAction enum
+    const int ACTION_OFF = 0;
+    const int ACTION_HEATING = 2;
+    const int ACTION_COOLING = 1;
+    const int ACTION_FAN = 4;
+    const int ACTION_IDLE = 3;
+
+    if (mode == MODE_OFF) {
+      return ACTION_OFF;
+    } else if (heat_stage > 0) {
+      return ACTION_HEATING;
+    } else if (hp_stage > 0 && mode == MODE_COOL) {
+      return ACTION_COOLING;
+    } else if (hp_stage > 0 && (mode == MODE_HEAT || mode == MODE_EHEAT)) {
+      return ACTION_HEATING;
+    } else if (blower_running) {
+      return ACTION_FAN;
+    } else {
+      return ACTION_IDLE;
+    }
+  };
+
+  // MODE_EHEAT (0x03) with heat_stage active → HEATING
+  ASSERT_EQ(compute_action(MODE_EHEAT, 2, 0, true), 2);
+
+  // MODE_EHEAT with hp_stage active → HEATING
+  ASSERT_EQ(compute_action(MODE_EHEAT, 0, 1, true), 2);
+
+  // MODE_HEAT with heat_stage active → HEATING
+  ASSERT_EQ(compute_action(MODE_HEAT, 1, 0, true), 2);
+
+  // MODE_HEAT with hp_stage active → HEATING
+  ASSERT_EQ(compute_action(MODE_HEAT, 0, 1, true), 2);
+
+  // MODE_COOL with hp_stage active → COOLING
+  ASSERT_EQ(compute_action(MODE_COOL, 0, 1, true), 1);
+
+  // MODE_OFF always → OFF regardless of stages
+  ASSERT_EQ(compute_action(MODE_OFF, 2, 1, true), 0);
+
+  // No stages, blower running → FAN
+  ASSERT_EQ(compute_action(MODE_HEAT, 0, 0, true), 4);
+  ASSERT_EQ(compute_action(MODE_EHEAT, 0, 0, true), 4);
+
+  // No stages, blower off → IDLE
+  ASSERT_EQ(compute_action(MODE_HEAT, 0, 0, false), 3);
+  ASSERT_EQ(compute_action(MODE_EHEAT, 0, 0, false), 3);
+
   PASS();
 }
 
