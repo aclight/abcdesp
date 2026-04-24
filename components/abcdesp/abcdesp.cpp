@@ -834,6 +834,9 @@ void AbcdEspComponent::parse_vacation(const uint8_t *data, uint8_t len) {
 
   if (!vacation_initialized_ || vacation_active_ != was_active) {
     vacation_initialized_ = true;
+    if (vacation_active_sensor_ != nullptr) {
+      vacation_active_sensor_->publish_state(vacation_active_);
+    }
     publish_climate_state();
   }
 }
@@ -862,13 +865,6 @@ climate::ClimateTraits AbcdEspComponent::traits() {
       climate::CLIMATE_FAN_LOW,
       climate::CLIMATE_FAN_MEDIUM,
       climate::CLIMATE_FAN_HIGH,
-  });
-
-  // Declare Away preset so HA recognises it when vacation is active.
-  // The preset is only set dynamically in publish_climate_state().
-  traits.set_supported_presets({
-      climate::CLIMATE_PRESET_HOME,
-      climate::CLIMATE_PRESET_AWAY,
   });
 
   return traits;
@@ -1155,13 +1151,6 @@ void AbcdEspComponent::publish_climate_state() {
     this->action = climate::CLIMATE_ACTION_FAN;
   } else {
     this->action = climate::CLIMATE_ACTION_IDLE;
-  }
-
-  // Preset — only show Away when vacation is active
-  if (vacation_active_) {
-    this->preset = climate::CLIMATE_PRESET_AWAY;
-  } else {
-    this->preset = climate::CLIMATE_PRESET_HOME;
   }
 
   this->publish_state();

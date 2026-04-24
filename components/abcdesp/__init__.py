@@ -55,6 +55,7 @@ CONF_VACATION_MIN_TEMP_NUMBER = "vacation_min_temp_number"
 CONF_VACATION_MAX_TEMP_NUMBER = "vacation_max_temp_number"
 CONF_ACTIVATE_VACATION_BUTTON = "activate_vacation_button"
 CONF_CANCEL_VACATION_BUTTON = "cancel_vacation_button"
+CONF_VACATION_ACTIVE_SENSOR = "vacation_active_sensor"
 CONF_LAST_SEEN_SENSOR = "last_seen_sensor"
 
 CONFIG_SCHEMA = (
@@ -174,6 +175,9 @@ CONFIG_SCHEMA = (
                 CancelVacationButton,
                 icon="mdi:airplane-off",
                 entity_category=ENTITY_CATEGORY_CONFIG,
+            ),
+            cv.Optional(CONF_VACATION_ACTIVE_SENSOR): binary_sensor.binary_sensor_schema(
+                icon="mdi:airplane",
             ),
             cv.Optional(CONF_LAST_SEEN_SENSOR): sensor.sensor_schema(
                 unit_of_measurement="s",
@@ -313,6 +317,10 @@ async def to_code(config):
         btn = await button.new_button(config[CONF_CANCEL_VACATION_BUTTON])
         cg.add(btn.set_parent(var))
         cg.add(var.set_cancel_vacation_button(btn))
+
+    if CONF_VACATION_ACTIVE_SENSOR in config:
+        sens = await binary_sensor.new_binary_sensor(config[CONF_VACATION_ACTIVE_SENSOR])
+        cg.add(var.set_vacation_active_sensor(sens))
 
     cg.add(var.set_hold_duration_minutes(config[CONF_HOLD_DURATION_MINUTES]))
 
