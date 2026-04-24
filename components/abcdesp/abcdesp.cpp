@@ -797,8 +797,7 @@ void AbcdEspComponent::parse_heatpump_02(const uint8_t *data,
 }
 
 // ==========================================================================
-// Parse 3B04 — vacation settings (11 bytes)
-// Layout (confirmed via hardware logs):
+// Parse 3B04 — vacation settings (11 bytes)d// Layout (confirmed via hardware logs):
 //   [0]    = zone count/status (always 0x01, NOT vacation flag)
 //   [1-2]  = unknown (always 0x00)
 //   [3]    = vacation_active (0=off, 1=on)
@@ -868,6 +867,7 @@ void AbcdEspComponent::parse_vacation(const uint8_t *data, uint8_t len) {
 climate::ClimateTraits AbcdEspComponent::traits() {
   auto traits = climate::ClimateTraits();
   traits.add_feature_flags(climate::CLIMATE_SUPPORTS_CURRENT_TEMPERATURE |
+                           climate::CLIMATE_SUPPORTS_TARGET_TEMPERATURE |
                            climate::CLIMATE_SUPPORTS_TWO_POINT_TARGET_TEMPERATURE);
   traits.set_visual_min_temperature(f_to_c(40));   // 40°F ≈ 4.4°C
   traits.set_visual_max_temperature(f_to_c(99));   // 99°F ≈ 37.2°C
@@ -1109,17 +1109,30 @@ void AbcdEspComponent::publish_climate_state() {
   }
 
   // Target temperatures (convert °F → °C for HA)
-  // Always use dual target (low/high) because traits declares
-  // TWO_POINT_TARGET_TEMPERATURE — ESPHome ignores single target when
-  // that flag is set.  The thermostat always maintains both setpoints.
-  if (this->mode == climate::CLIMATE_MODE_OFF) {
-    this->target_temperature_low = NAN;
-    this->target_temperature_high = NAN;
-  } else {
-    this->target_temperature_low = f_to_c(static_cast<float>(heat_setpoint_));
-    this->target_temperature_high = f_to_c(static_cast<float>(cool_setpoint_));
+  // With both TARGET_TEMPERATURE and TWO_POINT_TARGET_TEMPERATURE declared,
+  // ESPHome uses single target in HEAT/COOL and dual in HEAT_COOL.
+  switch (this->mode) {
+    case climate::CLIMATE_MODE_HEAT:
+      this->target_temperature = f_to_c(static_cast<float>(heat_setpoint_));
+      this->target_temperature_low = NAN;
+      this->target_temperature_high = NAN;
+      break;
+    case climate::CLIMATE_MODE_COOL:
+      this->target_temperature = f_to_c(static_cast<float>(cool_setpoint_));
+      this->target_temperature_low = NAN;
+      this->target_temperature_high = NAN;
+      break;
+    case climate::CLIMATE_MODE_HEAT_COOL:
+      this->target_temperature_low = f_to_c(static_cast<float>(heat_setpoint_));
+      this->target_temperature_high = f_to_c(static_cast<float>(cool_setpoint_));
+      this->target_temperature = NAN;
+      break;
+    default:
+      this->target_temperature = NAN;
+      this->target_temperature_low = NAN;
+      this->target_temperature_high = NAN;
+      break;
   }
-  this->target_temperature = NAN;
 
   // Fan mode
   switch (fan_mode_) {
