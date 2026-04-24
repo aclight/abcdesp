@@ -745,9 +745,9 @@ TEST(setpoint_f_to_c_rounding) {
 
 TEST(target_temp_clear_stale_on_mode_switch) {
   printf("test_target_temp_clear_stale_on_mode_switch\n");
-  // With both TARGET_TEMPERATURE and TWO_POINT_TARGET_TEMPERATURE declared,
-  // ESPHome uses single target in HEAT/COOL, dual in HEAT_COOL (auto).
-  // Unused fields must be NaN to avoid stale values.
+  // With TWO_POINT_TARGET_TEMPERATURE, always use dual targets (low/high).
+  // HA thermostat card shows the relevant slider based on mode.
+  // Single target_temperature is always NaN.
 
   uint8_t heat_setpoint = 68;
   uint8_t cool_setpoint = 76;
@@ -757,48 +757,34 @@ TEST(target_temp_clear_stale_on_mode_switch) {
 
   // Helper lambda mirrors publish_climate_state logic
   auto update_targets = [&](int mode) {
-    // mode: 0=OFF, 1=HEAT, 2=COOL, 3=AUTO
-    switch (mode) {
-      case 1:  // HEAT — single target
-        target_temperature = f_to_c(static_cast<float>(heat_setpoint));
-        target_temperature_low = NAN;
-        target_temperature_high = NAN;
-        break;
-      case 2:  // COOL — single target
-        target_temperature = f_to_c(static_cast<float>(cool_setpoint));
-        target_temperature_low = NAN;
-        target_temperature_high = NAN;
-        break;
-      case 3:  // AUTO — dual targets
-        target_temperature_low = f_to_c(static_cast<float>(heat_setpoint));
-        target_temperature_high = f_to_c(static_cast<float>(cool_setpoint));
-        target_temperature = NAN;
-        break;
-      default:  // OFF — all NaN
-        target_temperature = NAN;
-        target_temperature_low = NAN;
-        target_temperature_high = NAN;
-        break;
+    // mode: 0=OFF, else=any active mode
+    if (mode == 0) {
+      target_temperature_low = NAN;
+      target_temperature_high = NAN;
+    } else {
+      target_temperature_low = f_to_c(static_cast<float>(heat_setpoint));
+      target_temperature_high = f_to_c(static_cast<float>(cool_setpoint));
     }
+    target_temperature = NAN;  // always NaN with two-point
   };
 
-  // AUTO mode — dual targets, single NaN
-  update_targets(3);
+  // HEAT mode — both low/high set
+  update_targets(1);
   ASSERT_TRUE(!std::isnan(target_temperature_low));
   ASSERT_TRUE(!std::isnan(target_temperature_high));
   ASSERT_TRUE(std::isnan(target_temperature));
 
-  // HEAT mode — single target, dual NaN
-  update_targets(1);
-  ASSERT_TRUE(!std::isnan(target_temperature));
-  ASSERT_TRUE(std::isnan(target_temperature_low));
-  ASSERT_TRUE(std::isnan(target_temperature_high));
-
-  // COOL mode — single target, dual NaN
+  // COOL mode — both low/high set
   update_targets(2);
-  ASSERT_TRUE(!std::isnan(target_temperature));
-  ASSERT_TRUE(std::isnan(target_temperature_low));
-  ASSERT_TRUE(std::isnan(target_temperature_high));
+  ASSERT_TRUE(!std::isnan(target_temperature_low));
+  ASSERT_TRUE(!std::isnan(target_temperature_high));
+  ASSERT_TRUE(std::isnan(target_temperature));
+
+  // AUTO mode — both low/high set
+  update_targets(3);
+  ASSERT_TRUE(!std::isnan(target_temperature_low));
+  ASSERT_TRUE(!std::isnan(target_temperature_high));
+  ASSERT_TRUE(std::isnan(target_temperature));
 
   // OFF mode — all NaN
   update_targets(0);
