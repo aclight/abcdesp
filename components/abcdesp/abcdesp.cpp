@@ -813,8 +813,15 @@ void AbcdEspComponent::parse_vacation(const uint8_t *data, uint8_t len) {
     uint8_t vac_min_temp = data[3];
     uint8_t vac_max_temp = data[4];
 
-    ESP_LOGD(TAG, "3B04: vacation=%s  days=%d  min=%d°F  max=%d°F",
-             vacation_active_ ? "active" : "off", vac_days, vac_min_temp, vac_max_temp);
+    // A vacation with 0 days remaining is not really active — the thermostat
+    // may keep byte 0 non-zero after a vacation expires or is configured.
+    if (vacation_active_ && days_x7 == 0) {
+      vacation_active_ = false;
+    }
+
+    ESP_LOGD(TAG, "3B04: byte0=0x%02X  vacation=%s  days=%d  min=%d°F  max=%d°F",
+             data[0], vacation_active_ ? "active" : "off", vac_days,
+             vac_min_temp, vac_max_temp);
 
     // Update number entities with current thermostat values when vacation is active
     if (vacation_active_) {
