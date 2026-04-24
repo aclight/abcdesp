@@ -103,6 +103,8 @@ abcdesp:
     name: "Activate Vacation"
   cancel_vacation_button:
     name: "Cancel Vacation"
+  vacation_active_sensor:
+    name: "Vacation Active"
   last_seen_sensor:
     name: "Last Seen"
 

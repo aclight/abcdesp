@@ -230,6 +230,7 @@ class AbcdEspComponent : public Component,
   void set_vacation_max_temp_number(VacationMaxTempNumber *n) { vacation_max_temp_number_ = n; }
   void set_activate_vacation_button(ActivateVacationButton *b) { activate_vacation_button_ = b; }
   void set_cancel_vacation_button(CancelVacationButton *b) { cancel_vacation_button_ = b; }
+  void set_vacation_active_sensor(binary_sensor::BinarySensor *s) { vacation_active_sensor_ = s; }
   void set_last_seen_sensor(sensor::Sensor *s) { last_seen_sensor_ = s; }
 
   // Returns true when the Allow Control lock is unlocked
@@ -391,6 +392,9 @@ class AbcdEspComponent : public Component,
   // Vacation buttons
   ActivateVacationButton *activate_vacation_button_{nullptr};
   CancelVacationButton *cancel_vacation_button_{nullptr};
+
+  // Vacation active sensor
+  binary_sensor::BinarySensor *vacation_active_sensor_{nullptr};
 
   // Runtime hold duration number entities
   HoldDurationNumber *hold_duration_number_{nullptr};
