@@ -680,8 +680,8 @@ void AbcdEspComponent::parse_tstat_zones(const uint8_t *data,
            fan_mode_, zone_hold_, heat_setpoint_, cool_setpoint_,
            zone_override_flag_, zone1_override_minutes_);
 
-  // Publish hold status
-  bool hold_active = (zone_hold_ & 0x01) != 0;
+  // Publish hold status — active if permanent hold OR timed override is set
+  bool hold_active = ((zone_hold_ & 0x01) != 0) || ((zone_override_flag_ & 0x01) != 0);
   if (hold_active_sensor_ != nullptr &&
       (!hold_active_initialized_ || hold_active != prev_hold_active_)) {
     hold_active_sensor_->publish_state(hold_active);
@@ -864,8 +864,12 @@ climate::ClimateTraits AbcdEspComponent::traits() {
       climate::CLIMATE_FAN_HIGH,
   });
 
-  // No presets declared — Away is set dynamically only when vacation is active.
-  // This prevents the thermostat card from always showing an "Away" button.
+  // Declare Away preset so HA recognises it when vacation is active.
+  // The preset is only set dynamically in publish_climate_state().
+  traits.set_supported_presets({
+      climate::CLIMATE_PRESET_HOME,
+      climate::CLIMATE_PRESET_AWAY,
+  });
 
   return traits;
 }
@@ -885,6 +889,8 @@ void AbcdEspComponent::control(const climate::ClimateCall &call) {
   // Block control when Allow Control lock is locked (or not configured)
   if (!is_control_allowed()) {
     ESP_LOGW(TAG, "Control blocked: Allow Control is locked");
+    // Re-publish current state so HA reverts any optimistic UI update
+    publish_climate_state();
     return;
   }
 
@@ -1085,19 +1091,28 @@ void AbcdEspComponent::publish_climate_state() {
   }
 
   // Target temperatures (convert °F → °C for HA)
-  // Use single target in heat/cool modes, dual target in auto mode
+  // Use single target in heat/cool modes, dual target in auto mode.
+  // Clear the unused target fields so HA doesn't show stale values.
   switch (this->mode) {
     case climate::CLIMATE_MODE_HEAT:
       this->target_temperature = f_to_c(static_cast<float>(heat_setpoint_));
+      this->target_temperature_low = NAN;
+      this->target_temperature_high = NAN;
       break;
     case climate::CLIMATE_MODE_COOL:
       this->target_temperature = f_to_c(static_cast<float>(cool_setpoint_));
+      this->target_temperature_low = NAN;
+      this->target_temperature_high = NAN;
       break;
     case climate::CLIMATE_MODE_HEAT_COOL:
       this->target_temperature_low = f_to_c(static_cast<float>(heat_setpoint_));
       this->target_temperature_high = f_to_c(static_cast<float>(cool_setpoint_));
+      this->target_temperature = NAN;
       break;
     default:
+      this->target_temperature = NAN;
+      this->target_temperature_low = NAN;
+      this->target_temperature_high = NAN;
       break;
   }
 
@@ -1146,7 +1161,7 @@ void AbcdEspComponent::publish_climate_state() {
   if (vacation_active_) {
     this->preset = climate::CLIMATE_PRESET_AWAY;
   } else {
-    this->preset.reset();
+    this->preset = climate::CLIMATE_PRESET_HOME;
   }
 
   this->publish_state();

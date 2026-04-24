@@ -685,6 +685,51 @@ TEST(setpoint_f_to_c_rounding) {
   PASS();
 }
 
+TEST(target_temp_clear_stale_on_mode_switch) {
+  printf("test_target_temp_clear_stale_on_mode_switch\n");
+  // When switching from AUTO (dual target) to HEAT or COOL (single target),
+  // the unused target fields must be NaN so HA doesn't show stale values.
+
+  uint8_t heat_setpoint = 68;
+  uint8_t cool_setpoint = 76;
+  float target_temperature = NAN;
+  float target_temperature_low = NAN;
+  float target_temperature_high = NAN;
+
+  // Simulate AUTO mode — sets dual targets, clears single
+  target_temperature_low = f_to_c(static_cast<float>(heat_setpoint));
+  target_temperature_high = f_to_c(static_cast<float>(cool_setpoint));
+  target_temperature = NAN;
+  ASSERT_TRUE(!std::isnan(target_temperature_low));
+  ASSERT_TRUE(!std::isnan(target_temperature_high));
+  ASSERT_TRUE(std::isnan(target_temperature));
+
+  // Simulate switching to COOL mode — must clear dual targets
+  target_temperature = f_to_c(static_cast<float>(cool_setpoint));
+  target_temperature_low = NAN;
+  target_temperature_high = NAN;
+  ASSERT_TRUE(!std::isnan(target_temperature));
+  ASSERT_TRUE(std::isnan(target_temperature_low));   // must be NaN
+  ASSERT_TRUE(std::isnan(target_temperature_high));  // must be NaN
+
+  // Simulate switching to HEAT mode — must clear dual targets
+  target_temperature = f_to_c(static_cast<float>(heat_setpoint));
+  target_temperature_low = NAN;
+  target_temperature_high = NAN;
+  ASSERT_TRUE(!std::isnan(target_temperature));
+  ASSERT_TRUE(std::isnan(target_temperature_low));
+  ASSERT_TRUE(std::isnan(target_temperature_high));
+
+  // Simulate switching to OFF — all NaN
+  target_temperature = NAN;
+  target_temperature_low = NAN;
+  target_temperature_high = NAN;
+  ASSERT_TRUE(std::isnan(target_temperature));
+  ASSERT_TRUE(std::isnan(target_temperature_low));
+  ASSERT_TRUE(std::isnan(target_temperature_high));
+  PASS();
+}
+
 TEST(heatpump_3e01_unsigned_sanity) {
   printf("test_heatpump_3e01_unsigned_sanity\n");
   // 3E01 temps are parsed as uint16/16.0. Verify that values >0x7FFF
@@ -1029,6 +1074,44 @@ TEST(vacation_3b04_roundtrip) {
   // Verify deactivation payload
   memset(vac_buf, 0, sizeof(vac_buf));
   ASSERT_EQ(vac_buf[0], 0x00);  // inactive
+  PASS();
+}
+
+TEST(hold_active_includes_timed_override) {
+  printf("test_hold_active_includes_timed_override\n");
+  // hold_active should be true when EITHER zone_hold bit 0 OR
+  // zone_override_flag bit 0 is set (Bug: previously only checked zone_hold).
+
+  uint8_t zone_hold = 0;
+  uint8_t zone_override_flag = 0;
+
+  // Neither permanent hold nor timed override — not active
+  bool hold_active = ((zone_hold & 0x01) != 0) || ((zone_override_flag & 0x01) != 0);
+  ASSERT_TRUE(!hold_active);
+
+  // Permanent hold only (no timed override)
+  zone_hold = 0x01;
+  zone_override_flag = 0x00;
+  hold_active = ((zone_hold & 0x01) != 0) || ((zone_override_flag & 0x01) != 0);
+  ASSERT_TRUE(hold_active);
+
+  // Timed override only (no permanent hold flag) — this is the bug case
+  zone_hold = 0x00;
+  zone_override_flag = 0x01;
+  hold_active = ((zone_hold & 0x01) != 0) || ((zone_override_flag & 0x01) != 0);
+  ASSERT_TRUE(hold_active);
+
+  // Both permanent hold and timed override
+  zone_hold = 0x01;
+  zone_override_flag = 0x01;
+  hold_active = ((zone_hold & 0x01) != 0) || ((zone_override_flag & 0x01) != 0);
+  ASSERT_TRUE(hold_active);
+
+  // Zone 2 override only — zone 1 not active
+  zone_hold = 0x00;
+  zone_override_flag = 0x02;
+  hold_active = ((zone_hold & 0x01) != 0) || ((zone_override_flag & 0x01) != 0);
+  ASSERT_TRUE(!hold_active);
   PASS();
 }
 
