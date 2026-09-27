@@ -119,7 +119,7 @@ light:
     pin: GPIO35
     num_leds: 1
     chipset: WS2812
-    rgb_order: GRB
+    channel_colors: GRB
     name: "Status LED"
     internal: true
     default_transition_length: 0ms
