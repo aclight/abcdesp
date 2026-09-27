@@ -47,7 +47,7 @@ jobs:
           wifi_ssid: "ci-placeholder"
           wifi_password: "ci-placeholder"
           wifi_fallback_password: "ci-placeholder"
-          encryption_key: "0000000000000000000000000000000000000000000="
+          abcdesp__encryption_key: "0000000000000000000000000000000000000000000="
           ota_password: "ci-placeholder"
           EOF
 
