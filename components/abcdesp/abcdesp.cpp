@@ -1,5 +1,6 @@
 #include "abcdesp.h"
 #include "esphome/core/log.h"
+#include <cinttypes>
 #include <cmath>
 #include <cstring>
 
@@ -385,7 +386,7 @@ void AbcdEspComponent::loop() {
   if (comms_ok_ && last_successful_response_ms_ > 0 &&
       (millis() - last_successful_response_ms_ > COMMS_TIMEOUT_MS)) {
     comms_ok_ = false;
-    ESP_LOGE(TAG, "Communication lost — no response in %d ms", COMMS_TIMEOUT_MS);
+    ESP_LOGE(TAG, "Communication lost — no response in %" PRIu32 " ms", COMMS_TIMEOUT_MS);
     if (comms_ok_sensor_ != nullptr) {
       comms_ok_sensor_->publish_state(false);
     }
@@ -1229,7 +1230,7 @@ void AbcdEspComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "ABCDESP HVAC:");
   ESP_LOGCONFIG(TAG, "  SAM Address: 0x%04X", ADDR_SAM);
   ESP_LOGCONFIG(TAG, "  Thermostat Address: 0x%04X", ADDR_TSTAT);
-  ESP_LOGCONFIG(TAG, "  Poll Interval: %d ms", POLL_INTERVAL_MS);
+  ESP_LOGCONFIG(TAG, "  Poll Interval: %" PRIu32 " ms", POLL_INTERVAL_MS);
   if (hold_duration_minutes_ > 0) {
     ESP_LOGCONFIG(TAG, "  Hold Duration: %d minutes (temporary)", hold_duration_minutes_);
   } else {
