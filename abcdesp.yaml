@@ -40,7 +40,7 @@ bluetooth_proxy:
 
 api:
   encryption:
-    key: !secret encryption_key
+    key: !secret abcdesp__encryption_key
 
 ota:
   - platform: esphome
